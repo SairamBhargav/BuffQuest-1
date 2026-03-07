@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import Map, { Marker, Popup, NavigationControl, GeolocateControl } from "react-map-gl";
+import Map, { Marker, Popup, NavigationControl, GeolocateControl, Source, Layer } from "react-map-gl/mapbox";
 import "mapbox-gl/dist/mapbox-gl.css";
 
 const CU_BOULDER_COORDS = {
@@ -37,6 +37,7 @@ const MOCK_QUESTS = [
 
 export default function MapMockup() {
   const [isClient, setIsClient] = useState(false);
+  const [mapLoaded, setMapLoaded] = useState(false);
   const [selectedQuest, setSelectedQuest] = useState<any>(null);
 
   const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
@@ -75,8 +76,21 @@ export default function MapMockup() {
       <Map
         mapboxAccessToken={token}
         initialViewState={CU_BOULDER_COORDS}
-        mapStyle="mapbox://styles/mapbox/outdoors-v12"
+        mapStyle="mapbox://styles/mapbox/standard"
         style={{ width: "100%", height: "100%" }}
+        pitch={60}
+        bearing={-20}
+        maxPitch={85}
+        minZoom={12.5}
+        maxZoom={20}
+        maxBounds={[
+          [-105.3100, 39.9800], // Southwest Coordinates
+          [-105.2200, 40.0300]  // Northeast Coordinates
+        ]}
+        onLoad={(e) => {
+          const map = e.target;
+          map.setConfigProperty('basemap', 'lightPreset', 'night');
+        }}
       >
         <NavigationControl position="bottom-right" />
         <GeolocateControl position="bottom-right" />
@@ -125,6 +139,7 @@ export default function MapMockup() {
             </div>
           </Popup>
         )}
+        {/* Native Mapbox v3 3D Standard Styling will automatically extrude the buildings and trees! */}
       </Map>
 
       {/* FAB - Create Quest */}
