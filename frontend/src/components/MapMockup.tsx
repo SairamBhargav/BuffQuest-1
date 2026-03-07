@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import Map, { Marker, Popup, Source, Layer } from "react-map-gl/mapbox";
+import Map, { Marker, Popup } from "react-map-gl/mapbox";
 import "mapbox-gl/dist/mapbox-gl.css";
 
 const CU_BOULDER_COORDS = {
@@ -52,7 +52,7 @@ export default function MapMockup() {
     return "night";
   };
 
-  const [lightPreset, setLightPreset] = useState(getLightPreset());
+  const lightPreset = getLightPreset();
 
   useEffect(() => {
     setIsClient(true);
@@ -94,7 +94,7 @@ export default function MapMockup() {
         minZoom={12.5}
         maxZoom={20}
         logoPosition="top-left"
-        attributionControl={false}
+        attributionControl={true}
         maxBounds={[
           [-105.3100, 39.9800], // Southwest Coordinates
           [-105.2200, 40.0300]  // Northeast Coordinates

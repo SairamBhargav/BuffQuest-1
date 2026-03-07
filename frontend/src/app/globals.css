@@ -8,14 +8,8 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
 }
-.mapboxgl-ctrl-logo,
-.mapboxgl-ctrl-bottom-left,
-.mapboxgl-ctrl-top-left {
-  display: none !important;
-}
+
 @media (prefers-color-scheme: dark) {
   :root {
     --background: #0a0a0a;
