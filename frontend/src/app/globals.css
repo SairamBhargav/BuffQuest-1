@@ -61,3 +61,17 @@ body {
 .inner-glow-text {
   text-shadow: 0 0 8px rgba(255,255,255,0.6);
 }
+
+/* Make Mapbox attribution bar transparent */
+.mapboxgl-ctrl-bottom-right,
+.mapboxgl-ctrl-bottom-left {
+  opacity: 0.6;
+}
+.mapboxgl-ctrl-attrib {
+  background: transparent !important;
+  color: rgba(255, 255, 255, 0.6) !important;
+  font-size: 10px !important;
+}
+.mapboxgl-ctrl-attrib a {
+  color: rgba(255, 255, 255, 0.6) !important;
+}
