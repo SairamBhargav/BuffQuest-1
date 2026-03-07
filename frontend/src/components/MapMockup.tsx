@@ -200,7 +200,7 @@ export default function MapMockup() {
       </Map>
 
       {/* Thumb Zone Drawer Action Area */}
-      <div className="absolute z-10 bottom-0 left-0 w-full h-32 liquid-glass-dark rounded-t-[40px] border-t border-white/10 pointer-events-none flex items-start justify-center pt-6">
+      <div className="absolute z-10 bottom-8 left-0 w-full pointer-events-none flex items-start justify-center">
         {/* Floating Action Bubble */}
         <motion.div 
           whileHover={{ y: -4 }}
