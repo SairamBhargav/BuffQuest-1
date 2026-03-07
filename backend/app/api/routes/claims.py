@@ -34,13 +34,13 @@ async def claim_quest(
         update(Quest)
         .where(
             Quest.id == quest_id,
-            Quest.status == QuestStatus.OPEN.value,
+            Quest.status == QuestStatus.OPEN,
             Quest.hunter_id.is_(None),
             Quest.creator_id != user_id,  # cannot claim own quest
         )
         .values(
             hunter_id=user_id,
-            status=QuestStatus.CLAIMED.value,
+            status=QuestStatus.CLAIMED,
             claimed_at=datetime.now(timezone.utc),
         )
         .returning(Quest)

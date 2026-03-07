@@ -7,8 +7,8 @@ class ModerationResult(BaseModel):
     """Response from the moderation service.
 
     The moderation pipeline evaluates quest submissions and returns
-    one of: ``approved``, ``flagged``, or ``rejected``.
+    one of: ``approved``, ``pending``, or ``rejected``.
     """
 
-    status: str  # "approved" | "flagged" | "rejected"
+    status: str  # "approved" | "pending" | "rejected"
     reason: str | None = None

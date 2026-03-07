@@ -4,7 +4,7 @@ import enum
 import uuid
 from datetime import datetime
 
-from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, String, Text, func
+from sqlalchemy import BigInteger, Boolean, DateTime, Enum, ForeignKey, Text, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -43,10 +43,10 @@ class AttendanceSubmission(Base):
     submission_time: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
-    verification_status: Mapped[str] = mapped_column(
-        String(20),
+    verification_status: Mapped[AttendanceVerificationStatus] = mapped_column(
+        Enum(AttendanceVerificationStatus, name="attendance_verification_status", schema="public", create_type=False),
         nullable=False,
-        default=AttendanceVerificationStatus.PENDING.value,
+        default=AttendanceVerificationStatus.PENDING,
     )
     reward_issued: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False

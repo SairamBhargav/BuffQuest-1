@@ -4,7 +4,7 @@ import enum
 import uuid
 from datetime import datetime
 
-from sqlalchemy import BigInteger, DateTime, ForeignKey, Integer, String, Text, func
+from sqlalchemy import BigInteger, DateTime, Enum, ForeignKey, Integer, Text, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -60,11 +60,15 @@ class Quest(Base):
     reward_notoriety: Mapped[int] = mapped_column(
         Integer, nullable=False, default=0
     )
-    status: Mapped[str] = mapped_column(
-        String(20), nullable=False, default=QuestStatus.OPEN.value
+    status: Mapped[QuestStatus] = mapped_column(
+        Enum(QuestStatus, name="quest_status", schema="public", create_type=False),
+        nullable=False,
+        default=QuestStatus.OPEN,
     )
-    moderation_status: Mapped[str] = mapped_column(
-        String(20), nullable=False, default=ModerationStatus.PENDING.value
+    moderation_status: Mapped[ModerationStatus] = mapped_column(
+        Enum(ModerationStatus, name="moderation_status", schema="public", create_type=False),
+        nullable=False,
+        default=ModerationStatus.PENDING,
     )
     moderation_reason: Mapped[str | None] = mapped_column(Text)
 

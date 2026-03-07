@@ -4,7 +4,7 @@ import enum
 import uuid
 from datetime import datetime
 
-from sqlalchemy import BigInteger, DateTime, ForeignKey, Integer, String, func
+from sqlalchemy import BigInteger, DateTime, Enum, ForeignKey, Integer, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -35,7 +35,10 @@ class RewardLog(Base):
         ForeignKey("public.profiles.id", ondelete="CASCADE"),
         nullable=False,
     )
-    source_type: Mapped[str] = mapped_column(String(30), nullable=False)
+    source_type: Mapped[RewardSourceType] = mapped_column(
+        Enum(RewardSourceType, name="reward_source_type", schema="public", create_type=False),
+        nullable=False,
+    )
     source_id: Mapped[int | None] = mapped_column(BigInteger)
     credit_delta: Mapped[int] = mapped_column(
         Integer, nullable=False, default=0
