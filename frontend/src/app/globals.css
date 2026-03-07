@@ -20,5 +20,44 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+}
+
+/* Antigravity Gamified Overhaul CSS */
+.liquid-glass {
+  background: rgba(255, 255, 255, 0.25);
+  backdrop-filter: blur(15px);
+  -webkit-backdrop-filter: blur(15px);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.15), inset 0 2px 4px rgba(255, 255, 255, 0.5);
+}
+
+.liquid-glass-dark {
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(15px);
+  -webkit-backdrop-filter: blur(15px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.35), inset 0 2px 6px rgba(255, 255, 255, 0.2);
+}
+
+.squishy-btn {
+  background: linear-gradient(145deg, #FFD60A, #FFB900);
+  box-shadow: inset 0 -4px 0 rgba(0,0,0,0.15), 0 8px 16px rgba(255, 214, 10, 0.4);
+}
+.squishy-btn:active {
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.2), 0 2px 4px rgba(255, 214, 10, 0.2);
+}
+
+.orb-pulse {
+  animation: pulse-orb 2.5s cubic-bezier(0.2, 0.8, 0.2, 1) infinite;
+}
+
+@keyframes pulse-orb {
+  0% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(255, 214, 10, 0.8); }
+  50% { transform: scale(1.05); box-shadow: 0 0 0 16px rgba(255, 214, 10, 0); }
+  100% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(255, 214, 10, 0); }
+}
+
+.inner-glow-text {
+  text-shadow: 0 0 8px rgba(255,255,255,0.6);
 }
