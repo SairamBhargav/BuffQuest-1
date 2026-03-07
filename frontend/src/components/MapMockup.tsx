@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import Map, { Marker, Popup, NavigationControl, GeolocateControl, Source, Layer } from "react-map-gl/mapbox";
+import Map, { Marker, Popup, Source, Layer } from "react-map-gl/mapbox";
 import "mapbox-gl/dist/mapbox-gl.css";
 
 const CU_BOULDER_COORDS = {
@@ -43,6 +43,17 @@ export default function MapMockup() {
   const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
   const isTokenMissing = !token || token === "YOUR_MAPBOX_TOKEN_HERE";
 
+  // Determine light preset based on current hour
+  const getLightPreset = () => {
+    const hour = new Date().getHours();
+    if (hour >= 6 && hour < 8) return "dawn";
+    if (hour >= 8 && hour < 17) return "day";
+    if (hour >= 17 && hour < 19) return "dusk";
+    return "night";
+  };
+
+  const [lightPreset, setLightPreset] = useState(getLightPreset());
+
   useEffect(() => {
     setIsClient(true);
   }, []);
@@ -50,7 +61,7 @@ export default function MapMockup() {
   if (!isClient) return null;
 
   return (
-    <div className="relative w-full h-screen bg-gray-900">
+    <div className="relative w-full h-full bg-gray-900">
       {isTokenMissing && (
         <div className="absolute z-50 top-4 left-1/2 -translate-x-1/2 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg font-semibold flex flex-col items-center">
           <span>Mapbox Token Missing!</span>
@@ -62,7 +73,6 @@ export default function MapMockup() {
 
       {/* Map Overlay Header */}
       <div className="absolute z-10 top-0 left-0 w-full p-6 pointer-events-none">
-        <h1 className="text-4xl font-black text-black drop-shadow-md pb-2">BuffQuest</h1>
         <div className="flex gap-4 mt-2">
           <div className="bg-white/90 backdrop-blur pointer-events-auto px-4 py-2 rounded-full font-bold shadow flex items-center gap-2 border border-slate-200">
             <span className="text-yellow-500">💰</span> 250 Credits
@@ -83,18 +93,17 @@ export default function MapMockup() {
         maxPitch={85}
         minZoom={12.5}
         maxZoom={20}
+        logoPosition="top-left"
+        attributionControl={false}
         maxBounds={[
           [-105.3100, 39.9800], // Southwest Coordinates
           [-105.2200, 40.0300]  // Northeast Coordinates
         ]}
         onLoad={(e) => {
           const map = e.target;
-          map.setConfigProperty('basemap', 'lightPreset', 'night');
+          map.setConfigProperty('basemap', 'lightPreset', lightPreset);
         }}
       >
-        <NavigationControl position="bottom-right" />
-        <GeolocateControl position="bottom-right" />
-
         {/* Render Quest Markers */}
         {MOCK_QUESTS.map((quest) => (
           <Marker
