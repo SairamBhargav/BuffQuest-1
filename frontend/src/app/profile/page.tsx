@@ -1,9 +1,23 @@
 "use client";
 
+import React, { useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
+import { useQuests, Quest } from "@/context/QuestContext";
+import ActiveQuestChat from "@/components/ActiveQuestChat";
 
 export default function ProfilePage() {
+  const { quests, completeQuest } = useQuests();
+  const activeQuests = quests.filter((q) => q.status === "claimed");
+
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [activeChatQuest, setActiveChatQuest] = useState<Quest | null>(null);
+
+  const openChat = (quest: Quest) => {
+    setActiveChatQuest(quest);
+    setIsChatOpen(true);
+  };
+
   return (
     <main className="w-full min-h-[100dvh] bg-[#0a0f1a] text-slate-100 overflow-y-auto pb-10" style={{ paddingTop: 'var(--sat)', paddingBottom: 'var(--sab)' }}>
       <div className="relative w-full">
@@ -44,27 +58,40 @@ export default function ProfilePage() {
           {/* Active Quests Section */}
           <section>
             <h2 className="text-lg font-black text-white mb-4 flex items-center space-x-3 drop-shadow-sm px-2">
-              <span>Active Quests</span>
-              <span className="bg-yellow-400 text-yellow-900 text-xs px-3 py-1 rounded-[20px] font-black tracking-widest">1</span>
-            </h2>
-            <div className="space-y-4">
-              <motion.div 
-                whileHover={{ scale: 1.02 }}
-                className="liquid-glass-dark p-5 rounded-[40px] shadow-lg border-l-4 border-yellow-400 border-opacity-100"
-              >
-                <div className="flex justify-between items-start mb-2">
-                  <h3 className="font-bold text-white text-[1.1rem]">Need Calc 2 Notes</h3>
-                  <span className="font-black text-yellow-400 bg-yellow-400/10 px-3 py-1 rounded-[20px] shadow-sm tracking-tight border border-yellow-400/20">25 💰</span>
-                </div>
-                <p className="text-sm text-slate-400 flex items-center gap-1 mb-4 font-medium tracking-wide">
-                  <span>📍</span> Duane Physics
-                </p>
-                <div className="flex gap-3">
-                  <motion.button whileTap={{ scale: 0.9 }} className="flex-1 bg-white/10 hover:bg-white/20 text-white text-sm font-black py-3 rounded-[24px] transition-colors border border-white/10 uppercase tracking-wider">Chat</motion.button>
-                  <motion.button whileTap={{ scale: 0.9 }} className="flex-1 squishy-btn text-yellow-900 text-sm font-black py-3 rounded-[24px] uppercase tracking-wider">Complete</motion.button>
-                </div>
-              </motion.div>
-            </div>
+               <span>Active Quests</span>
+               <span className="bg-yellow-400 text-yellow-900 text-xs px-3 py-1 rounded-[20px] font-black tracking-widest">{activeQuests.length}</span>
+             </h2>
+
+             {activeQuests.length === 0 ? (
+               <div className="liquid-glass-dark p-8 rounded-[40px] text-center shadow-lg">
+                 <p className="text-slate-400 font-bold mb-4">No active quests right now.</p>
+                 <Link href="/">
+                   <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="bg-white/10 text-white px-6 py-2 rounded-full font-black border border-white/20 uppercase tracking-widest text-sm text-yellow-500 shadow-md">Find Quests</motion.button>
+                 </Link>
+               </div>
+             ) : (
+               <div className="space-y-4">
+                 {activeQuests.map((quest) => (
+                   <motion.div 
+                     key={quest.id}
+                     whileHover={{ scale: 1.02 }}
+                     className="liquid-glass-dark p-5 rounded-[40px] shadow-lg border-l-4 border-yellow-400 border-opacity-100"
+                   >
+                     <div className="flex justify-between items-start mb-2">
+                       <h3 className="font-bold text-white text-[1.1rem]">{quest.title}</h3>
+                       <span className="font-black text-yellow-400 bg-yellow-400/10 px-3 py-1 rounded-[20px] shadow-sm tracking-tight border border-yellow-400/20">{quest.bounty} 💰</span>
+                     </div>
+                     <p className="text-sm text-slate-400 flex items-center gap-1 mb-4 font-medium tracking-wide">
+                       <span>📍</span> {quest.building}
+                     </p>
+                     <div className="flex gap-3">
+                       <motion.button onClick={() => openChat(quest)} whileTap={{ scale: 0.9 }} className="flex-1 bg-white/10 hover:bg-white/20 text-white text-sm font-black py-3 rounded-[24px] transition-colors border border-white/10 uppercase tracking-wider">Chat</motion.button>
+                       <motion.button onClick={() => completeQuest(quest.id)} whileTap={{ scale: 0.9 }} className="flex-1 squishy-btn text-yellow-900 text-sm font-black py-3 rounded-[24px] uppercase tracking-wider">Complete</motion.button>
+                     </div>
+                   </motion.div>
+                 ))}
+               </div>
+             )}
           </section>
 
           {/* Leaderboard Snippet */}
@@ -94,6 +121,13 @@ export default function ProfilePage() {
 
         </div>
       </div>
+
+      <ActiveQuestChat
+        isOpen={isChatOpen}
+        onClose={() => setIsChatOpen(false)}
+        questTitle={activeChatQuest?.title || "Quest Chat"}
+        opponentName="Chip"
+      />
     </main>
   );
 }

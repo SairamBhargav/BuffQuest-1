@@ -35,6 +35,8 @@ export const viewport: Viewport = {
   themeColor: "#0a0a0a",
 };
 
+import { Providers } from "./Providers";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -46,7 +48,9 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} ${inter.variable} font-sans antialiased m-0 p-0 overflow-hidden`}
         style={{ width: '100vw', height: '100dvh' }}
       >
-        {children}
+        <Providers>
+          {children}
+        </Providers>
       </body>
     </html>
   );

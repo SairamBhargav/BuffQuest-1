@@ -6,6 +6,7 @@ import Map, { Marker, Popup } from "react-map-gl/mapbox";
 import Link from "next/link";
 import CreateQuestModal from "./CreateQuestModal";
 import "mapbox-gl/dist/mapbox-gl.css";
+import { useQuests, Quest } from "@/context/QuestContext";
 
 const CU_BOULDER_COORDS = {
   longitude: -105.2705,
@@ -13,35 +14,19 @@ const CU_BOULDER_COORDS = {
   zoom: 14.5,
 };
 
-// Mock Quests for the UI prototype
-const MOCK_QUESTS = [
-  {
-    id: "q1",
-    title: "Coffee Run to Norlin",
-    bounty: 15,
-    longitude: -105.273,
-    latitude: 40.0085,
-  },
-  {
-    id: "q2",
-    title: "Need Calc 2 Notes",
-    bounty: 25,
-    longitude: -105.267,
-    latitude: 40.006,
-  },
-  {
-    id: "q3",
-    title: "Return library book",
-    bounty: 10,
-    longitude: -105.272,
-    latitude: 40.005,
-  },
+// Exact Bounding box from user screenshot (Main Campus, East Campus, Williams Village)
+// Format: [ [westLng, southLat], [eastLng, northLat] ]
+const CU_BOULDER_BOUNDS: [[number, number], [number, number]] = [
+  [-105.280, 39.991], // Southwest coordinates (Broadway & Moorhead / Will Vill border)
+  [-105.235, 40.017], // Northeast coordinates (Past SEEC / Colorado Ave limit)
 ];
 
+
 export default function MapMockup() {
+  const { quests, claimQuest } = useQuests();
   const [isClient, setIsClient] = useState(false);
   const [mapLoaded, setMapLoaded] = useState(false);
-  const [selectedQuest, setSelectedQuest] = useState<any>(null);
+  const [selectedQuest, setSelectedQuest] = useState<Quest | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
   const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
@@ -113,28 +98,37 @@ export default function MapMockup() {
       </div>
 
       <Map
-        mapboxAccessToken={token}
-        initialViewState={CU_BOULDER_COORDS}
-        mapStyle="mapbox://styles/mapbox/standard"
+        reuseMaps
+        mapboxAccessToken={isTokenMissing ? "" : token}
+        initialViewState={{
+          longitude: CU_BOULDER_COORDS.longitude, // Changed from lng to longitude
+          latitude: CU_BOULDER_COORDS.latitude,   // Changed from lat to latitude
+          zoom: 15,
+          pitch: 60, // 3D Tilt
+          bearing: -17.6,
+        }}
+        maxBounds={CU_BOULDER_BOUNDS}
         style={{ width: "100%", height: "100%" }}
-        pitch={60}
-        bearing={-20}
+        mapStyle="mapbox://styles/mapbox/standard"
         maxPitch={85}
-        minZoom={12.5}
+        minZoom={14} // Increased from 12.5 to 14 to prevent viewport from exceeding maxBounds (causing infinite loop)
         maxZoom={20}
         logoPosition="bottom-left"
         attributionControl={true}
-        maxBounds={[
-          [-105.3100, 39.9800], // Southwest Coordinates
-          [-105.2200, 40.0300]  // Northeast Coordinates
-        ]}
-        onLoad={(e) => {
+        onLoad={(e: any) => {
           const map = e.target;
-          map.setConfigProperty('basemap', 'lightPreset', lightPreset);
+          // Apply immediately if possible, but also wait for style.load to ensure the basemap is ready
+          try {
+            map.setConfigProperty('basemap', 'lightPreset', lightPreset);
+          } catch (e) {}
+          
+          map.on('style.load', () => {
+            map.setConfigProperty('basemap', 'lightPreset', lightPreset);
+          });
         }}
       >
         {/* Render Quest Markers */}
-        {MOCK_QUESTS.map((quest) => (
+        {quests.filter(q => q.status === 'open').map((quest) => (
           <Marker
             key={quest.id}
             longitude={quest.longitude}
@@ -145,10 +139,8 @@ export default function MapMockup() {
               setSelectedQuest(quest);
             }}
           >
-            <motion.div 
-              whileHover={{ scale: 1.15 }}
-              whileTap={{ scale: 0.9 }}
-              className="cursor-pointer flex flex-col items-center group relative pt-4"
+            <div 
+              className="cursor-pointer flex flex-col items-center group relative pt-4 hover:scale-110 active:scale-95 transition-transform duration-200"
             >
               {/* Dynamic Bounding Hover Label */}
               <div className="absolute -top-6 bg-yellow-400 text-yellow-900 font-black px-3 py-1 rounded-[20px] text-xs shadow-xl border-2 border-white opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300 z-10">
@@ -162,7 +154,7 @@ export default function MapMockup() {
                   <div className="w-2 h-2 rounded-full bg-white/80"></div>
                 </div>
               </div>
-            </motion.div>
+            </div>
           </Marker>
         ))}
 
@@ -197,7 +189,10 @@ export default function MapMockup() {
                 <motion.button 
                   whileTap={{ scale: 0.94 }}
                   className="w-full squishy-btn text-yellow-900 font-black py-3 rounded-[24px] uppercase tracking-wider text-sm border-2 border-white/60"
-                  onClick={() => alert("Antigravity Claim Sequence Initiated!")}
+                  onClick={() => {
+                    claimQuest(selectedQuest.id);
+                    setSelectedQuest(null);
+                  }}
                 >
                   Claim Quest
                 </motion.button>
