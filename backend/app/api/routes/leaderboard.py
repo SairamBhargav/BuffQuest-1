@@ -5,8 +5,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.models.profile import Profile
 from app.schemas.profile import ProfileRead
-from app.services.leaderboard_service import get_top_users_service
 
 router = APIRouter(prefix="/leaderboard", tags=["leaderboard"])
 
@@ -21,4 +21,11 @@ async def get_leaderboard(
     db: AsyncSession = Depends(get_db),
 ):
     """Return top users ranked by notoriety (descending)."""
-    return await get_top_users_service(db, limit, offset)
+    stmt = (
+        select(Profile)
+        .order_by(Profile.notoriety.desc())
+        .offset(offset)
+        .limit(limit)
+    )
+    result = await db.execute(stmt)
+    return result.scalars().all()
