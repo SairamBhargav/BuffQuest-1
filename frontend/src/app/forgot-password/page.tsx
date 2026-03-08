@@ -16,7 +16,6 @@ export default function ForgotPasswordPage() {
     setMessage('')
     setError('')
 
-    // Enforce colorado.edu emails
     if (!email.toLowerCase().endsWith('@colorado.edu')) {
       setError('Please use a valid @colorado.edu email address.')
       setLoading(false)
@@ -24,9 +23,9 @@ export default function ForgotPasswordPage() {
     }
 
     try {
-      const { error } = await authClient.emailOtp.sendVerificationOtp({
+      const { error } = await authClient.requestPasswordReset({
         email,
-        type: 'forget-password', // Specify that this is for resetting the password
+        redirectTo: `${window.location.origin}/update-password`,
       })
 
       if (error) {
@@ -34,12 +33,10 @@ export default function ForgotPasswordPage() {
       } else {
         setMessage('Password reset instructions sent. Please check your email to update your password.')
       }
-    } catch (err) {
+    } catch {
       setError('An unexpected error occurred. Please try again.')
     } finally {
-      if (!message) {
-        setLoading(false)
-      }
+      setLoading(false)
     }
   }
 
@@ -52,6 +49,7 @@ export default function ForgotPasswordPage() {
             Enter your CU Boulder email to receive password reset instructions.
           </p>
         </div>
+
         <form className="mt-8 space-y-6" onSubmit={handleReset}>
           <div className="rounded-md shadow-sm space-y-4">
             <div>
@@ -96,10 +94,10 @@ export default function ForgotPasswordPage() {
             {message}
           </div>
         )}
-        
+
         {error && (
-          <div className="mt-4 p-4 text-sm text-red-700 bg-red-100 rounded-lg text-center font-medium flex flex-col gap-1">
-            <span>{error}</span>
+          <div className="mt-4 p-4 text-sm text-red-700 bg-red-100 rounded-lg text-center font-medium">
+            {error}
           </div>
         )}
       </div>
