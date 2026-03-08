@@ -3,29 +3,38 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect } from "react";
 import { authClient } from "@/lib/auth-client";
 
-export type QuestStatus = "open" | "claimed" | "completed" | "verified" | "cancelled";
+export type QuestStatus = "open" | "claimed" | "completed" | "verified" | "cancelled" | "rewarded";
 
 export interface Quest {
   id: string;
   title: string;
   description: string;
-  bounty: number;
+  bounty: number; // For compatibility (backend expects cost_credits/reward_credits)
+  cost_credits?: number;
+  reward_credits?: number;
+  reward_notoriety?: number;
   longitude: number;
   latitude: number;
   status: QuestStatus;
   building: string;
-  creatorId: string;
+  building_name?: string;
+  creatorId?: string;
+  creator_id?: string;
   hunterId?: string;
-  createdAt: string;
+  hunter_id?: string;
+  createdAt?: string;
+  created_at?: string;
 }
 
 export interface UserProfile {
   id: string;
   name: string;
+  display_name?: string;
   email: string;
   credits: number;
   notoriety: number;
   isVerifiedStudent: boolean;
+  is_verified_student?: boolean;
 }
 
 export interface LeaderboardEntry {
@@ -34,6 +43,7 @@ export interface LeaderboardEntry {
   notoriety: number;
   isYou: boolean;
   avatar: string;
+  display_name?: string;
 }
 
 const INITIAL_USER: UserProfile = {
@@ -98,19 +108,48 @@ const INITIAL_QUESTS: Quest[] = [
 
 interface QuestContextType {
   quests: Quest[];
-  user: UserProfile;
+  user: UserProfile | null;
   leaderboard: LeaderboardEntry[];
-  addQuest: (quest: Omit<Quest, "id" | "status" | "creatorId" | "createdAt">) => { success: boolean; error?: string };
-  claimQuest: (id: string) => void;
-  completeQuest: (id: string) => void;
-  verifyQuest: (id: string) => void;
-  cancelQuest: (id: string) => void;
+  addQuest: (quest: any) => Promise<{ success: boolean; error?: string }>;
+  claimQuest: (id: string) => Promise<void>;
+  completeQuest: (id: string) => Promise<void>;
+  verifyQuest: (id: string) => Promise<void>;
+  cancelQuest: (id: string) => Promise<void>;
   getActiveQuests: () => Quest[];
   getMyQuests: () => Quest[];
   refreshStats: () => void;
 }
 
 const QuestContext = createContext<QuestContextType | undefined>(undefined);
+
+const getApiBase = () => {
+  const configuredBase = process.env.NEXT_PUBLIC_API_BASE_URL?.trim();
+  if (configuredBase) {
+    return configuredBase.replace(/\/$/, "");
+  }
+
+  return "/api/backend";
+};
+
+const fetchOpts = (method: string, body?: any) => {
+  const headers: HeadersInit = {};
+
+  if (body !== undefined) {
+    headers["Content-Type"] = "application/json";
+  }
+
+  const opts: RequestInit = {
+    method,
+    headers,
+    credentials: "include",
+  };
+
+  if (body !== undefined) {
+    opts.body = JSON.stringify(body);
+  }
+
+  return opts;
+};
 
 export function QuestProvider({ children }: { children: ReactNode }) {
   const [quests, setQuests] = useState<Quest[]>(INITIAL_QUESTS);
@@ -169,87 +208,153 @@ export function QuestProvider({ children }: { children: ReactNode }) {
     }
   }, [session?.user, refreshStats]);
 
-  const addQuest = useCallback((questData: Omit<Quest, "id" | "status" | "creatorId" | "createdAt">) => {
+  const refreshData = useCallback(async () => {
+    try {
+      const [userResult, questsResult, leaderboardResult] = await Promise.allSettled([
+        fetch(`${apiBase}/users/me`, fetchOpts("GET")),
+        fetch(`${apiBase}/quests?limit=100`, fetchOpts("GET")),
+        fetch(`${apiBase}/leaderboard`, fetchOpts("GET")),
+      ]);
+
+      if (userResult.status === "fulfilled") {
+        if (userResult.value.ok) {
+          const userData = await readJson(userResult.value);
+          setUser(userData ? normalizeUser(userData) : null);
+        } else if (userResult.value.status === 401) {
+          setUser(null);
+        } else {
+          console.error("Failed to load user profile", userResult.value.status);
+          setUser(null);
+        }
+      } else {
+        console.error("Failed to fetch user profile", userResult.reason);
+        setUser(null);
+      }
+
+      if (questsResult.status === "fulfilled" && questsResult.value.ok) {
+        const questsData = await readJson(questsResult.value);
+        setQuests(Array.isArray(questsData) ? questsData.map(normalizeQuest) : []);
+      } else if (questsResult.status === "rejected") {
+        console.error("Failed to fetch quests", questsResult.reason);
+      }
+
+      if (leaderboardResult.status === "fulfilled" && leaderboardResult.value.ok) {
+        const leaderboardData = await readJson(leaderboardResult.value);
+        setLeaderboard(Array.isArray(leaderboardData) ? leaderboardData : []);
+      } else {
+        setLeaderboard([
+          { rank: 1, name: "Chip", notoriety: 89, isYou: false, avatar: "👑" },
+          { rank: 2, name: "Ralphie", notoriety: 12, isYou: true, avatar: "🧑‍🎓" },
+          { rank: 3, name: "Alex", notoriety: 6, isYou: false, avatar: "🎒" }
+        ]);
+      }
+    } catch (e) {
+      console.error("Network error fetching initial QuestContext data", e);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [apiBase, readJson]);
+
+  useEffect(() => {
+    refreshData();
+  }, [refreshData]);
+
+  const addQuest = useCallback(async (questData: any) => {
+    if (!user) return { success: false, error: "Please log in first." };
     if (user.credits < questData.bounty) {
       return { success: false, error: "Not enough credits to post this quest." };
     }
 
-    const newQuest: Quest = {
-      ...questData,
-      id: "q-" + Date.now().toString(36),
-      status: "open",
-      creatorId: user.id,
-      createdAt: new Date().toISOString(),
-    };
+    try {
+      // First hit AI Moderation
+      const modRes = await fetch("/api/quests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...questData, skipDb: true }),
+      });
+      if (!modRes.ok) {
+        const modErr = await modRes.json();
+        return { success: false, error: modErr.error || "Quest flagged by AI Moderation." };
+      }
 
-    setQuests((prev) => [newQuest, ...prev]);
-    setUser((prev) => ({ ...prev, credits: prev.credits - questData.bounty }));
-    return { success: true };
-  }, [user.credits, user.id]);
+      // Then hit FastAPI Backend
+      const backendPayload = {
+        title: questData.title,
+        description: questData.description,
+        building_zone_id: questData.buildingId || 1, // Fallback ID
+        cost_credits: questData.bounty,
+        reward_credits: questData.bounty,
+        reward_notoriety: 1,
+        moderation_status: "approved",
+      };
 
-  const claimQuest = useCallback((id: string) => {
-    setQuests((prev) =>
-      prev.map((q) =>
-        q.id === id && q.status === "open"
-          ? { ...q, status: "claimed" as QuestStatus, hunterId: user.id }
-          : q
-      )
-    );
-  }, [user.id]);
+      const res = await fetch(`${apiBase}/quests`, fetchOpts("POST", backendPayload));
+      const resData = await res.json();
+      
+      if (!res.ok) {
+        return { success: false, error: resData.detail || "Database error creating quest." };
+      }
 
-  const completeQuest = useCallback((id: string) => {
-    setQuests((prev) =>
-      prev.map((q) =>
-        q.id === id && q.status === "claimed" ? { ...q, status: "completed" as QuestStatus } : q
-      )
-    );
-  }, []);
-
-  const verifyQuest = useCallback((id: string) => {
-    setQuests((prev) => {
-      const quest = prev.find((q) => q.id === id);
-      if (!quest || quest.status !== "completed") return prev;
-      return prev.map((q) =>
-        q.id === id ? { ...q, status: "verified" as QuestStatus } : q
-      );
-    });
-    // Award credits and notoriety to the hunter
-    const quest = quests.find((q) => q.id === id);
-    if (quest) {
-      setUser((prev) => ({
-        ...prev,
-        credits: prev.credits + quest.bounty,
-        notoriety: prev.notoriety + 1,
-      }));
+      // Refresh data to show new quest
+      await refreshData();
+      return { success: true };
+    } catch (e: any) {
+      return { success: false, error: "Network error submitting quest." };
     }
-  }, [quests]);
+  }, [apiBase, user, refreshData]);
 
-  const cancelQuest = useCallback((id: string) => {
-    setQuests((prev) => {
-      const quest = prev.find((q) => q.id === id);
-      if (!quest || (quest.status !== "open" && quest.status !== "claimed")) return prev;
-      return prev.map((q) =>
-        q.id === id ? { ...q, status: "cancelled" as QuestStatus } : q
-      );
-    });
-    // Refund credits if creator cancels their own quest
-    const quest = quests.find((q) => q.id === id);
-    if (quest && quest.creatorId === user.id) {
-      setUser((prev) => ({ ...prev, credits: prev.credits + quest.bounty }));
+  const claimQuest = useCallback(async (id: string) => {
+    try {
+      await fetch(`${apiBase}/quests/${id}/claim`, fetchOpts("POST"));
+      await refreshData();
+    } catch (e) {
+      console.error("Failed to claim quest", e);
     }
-  }, [quests, user.id]);
+  }, [apiBase, refreshData]);
+
+  const completeQuest = useCallback(async (id: string) => {
+    try {
+      await fetch(`${apiBase}/quests/${id}/complete`, fetchOpts("POST"));
+      await refreshData();
+    } catch (e) {
+      console.error("Failed to complete quest", e);
+    }
+  }, [apiBase, refreshData]);
+
+  const verifyQuest = useCallback(async (id: string) => {
+    try {
+      await fetch(`${apiBase}/quests/${id}/verify`, fetchOpts("POST"));
+      await fetch(`${apiBase}/quests/${id}/reward`, fetchOpts("POST"));
+      await refreshData();
+    } catch (e) {
+      console.error("Failed to verify & reward quest", e);
+    }
+  }, [apiBase, refreshData]);
+
+  const cancelQuest = useCallback(async (id: string) => {
+    try {
+      await fetch(`${apiBase}/quests/${id}/cancel`, fetchOpts("POST"));
+      await refreshData();
+    } catch (e) {
+      console.error("Failed to cancel quest", e);
+    }
+  }, [apiBase, refreshData]);
 
   const getActiveQuests = useCallback(() => {
+    if (!user) return [];
     return quests.filter(
       (q) =>
         (q.status === "claimed" || q.status === "completed") &&
         (q.hunterId === user.id || q.creatorId === user.id)
     );
-  }, [quests, user.id]);
+  }, [quests, user]);
 
   const getMyQuests = useCallback(() => {
-    return quests.filter((q) => q.creatorId === user.id && q.status !== "cancelled" && q.status !== "verified");
-  }, [quests, user.id]);
+    if (!user) return [];
+    return quests.filter(
+      (q) => q.creatorId === user.id && q.status !== "cancelled" && q.status !== "verified" && q.status !== "rewarded"
+    );
+  }, [quests, user]);
 
   return (
     <QuestContext.Provider
