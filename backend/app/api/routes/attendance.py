@@ -7,6 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.core.security import get_current_user
 from app.models.attendance import AttendanceSubmission
 from app.schemas.attendance import AttendanceSubmissionCreate, AttendanceSubmissionRead
 
@@ -23,7 +24,7 @@ router = APIRouter(prefix="/attendance", tags=["attendance"])
 )
 async def check_in(
     payload: AttendanceSubmissionCreate,
-    user_id: uuid.UUID,  # TODO: replace with Depends(get_current_user)
+    user_id: uuid.UUID = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Submit a class attendance check-in."""
@@ -46,7 +47,7 @@ async def check_in(
 # ------------------------------------------------------------------
 @router.get("/history", response_model=list[AttendanceSubmissionRead])
 async def get_attendance_history(
-    user_id: uuid.UUID,  # TODO: replace with Depends(get_current_user)
+    user_id: uuid.UUID = Depends(get_current_user),
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),

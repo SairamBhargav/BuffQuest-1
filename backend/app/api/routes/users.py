@@ -7,6 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.core.security import get_current_user
 from app.models.profile import Profile
 from app.schemas.profile import ProfileRead, ProfileStats, ProfileUpdate
 
@@ -18,7 +19,7 @@ router = APIRouter(prefix="/users", tags=["users"])
 # ------------------------------------------------------------------
 @router.get("/me", response_model=ProfileRead)
 async def get_my_profile(
-    user_id: uuid.UUID,  # TODO: replace with Depends(get_current_user)
+    user_id: uuid.UUID = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Return the authenticated user's own profile."""
@@ -51,7 +52,7 @@ async def get_profile(
 @router.patch("/me", response_model=ProfileRead)
 async def update_my_profile(
     payload: ProfileUpdate,
-    user_id: uuid.UUID,  # TODO: replace with Depends(get_current_user)
+    user_id: uuid.UUID = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Update the authenticated user's own profile."""
@@ -74,7 +75,7 @@ async def update_my_profile(
 # ------------------------------------------------------------------
 @router.get("/me/stats", response_model=ProfileStats)
 async def get_my_stats(
-    user_id: uuid.UUID,  # TODO: replace with Depends(get_current_user)
+    user_id: uuid.UUID = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Return credits and notoriety for the authenticated user."""

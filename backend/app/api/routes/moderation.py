@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import Settings, get_settings
 from app.core.database import get_db
 from app.models.quest import ModerationStatus, Quest
 from app.schemas.moderation import ModerationResult
@@ -22,6 +23,7 @@ router = APIRouter(prefix="/moderation", tags=["moderation"])
 async def review_quest(
     quest_id: int,
     db: AsyncSession = Depends(get_db),
+    settings: Settings = Depends(get_settings),
 ):
     """Submit a quest for moderation review.
 
