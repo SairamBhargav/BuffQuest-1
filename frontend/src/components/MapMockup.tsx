@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Map, { Marker, Popup } from "react-map-gl/mapbox";
 import Link from "next/link";
+import CreateQuestModal from "./CreateQuestModal";
 import "mapbox-gl/dist/mapbox-gl.css";
 
 const CU_BOULDER_COORDS = {
@@ -41,6 +42,7 @@ export default function MapMockup() {
   const [isClient, setIsClient] = useState(false);
   const [mapLoaded, setMapLoaded] = useState(false);
   const [selectedQuest, setSelectedQuest] = useState<any>(null);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
   const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
   const isTokenMissing = !token || token === "YOUR_MAPBOX_TOKEN_HERE";
@@ -82,7 +84,7 @@ export default function MapMockup() {
       )}
 
       {/* Map Overlay Header */}
-      <div className="absolute z-10 top-0 left-0 w-full p-4 sm:p-6 pointer-events-none flex justify-between items-start" style={{ paddingTop: 'max(env(safe-area-inset-top, 0px), 1rem)' }}>
+      <div className="absolute z-10 top-0 left-0 w-full p-4 sm:p-6 pointer-events-none flex justify-between items-start" style={{ paddingTop: 'max(var(--sat), 1rem)' }}>
         <div className="flex gap-2 sm:gap-4 mt-1 sm:mt-2 flex-wrap">
           {/* Adaptive Glass Stats Cards */}
           <motion.div 
@@ -206,18 +208,32 @@ export default function MapMockup() {
       </Map>
 
       {/* Thumb Zone Drawer Action Area */}
-      <div className="absolute z-10 bottom-6 sm:bottom-8 left-0 w-full pointer-events-none flex items-start justify-center" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
+      <div className="absolute z-10 bottom-6 sm:bottom-8 left-0 w-full pointer-events-none flex items-start justify-center" style={{ paddingBottom: 'var(--sab)' }}>
         {/* Floating Action Bubble */}
         <motion.div 
           whileHover={{ y: -4 }}
           whileTap={{ scale: 0.9, y: 2 }}
           className="pointer-events-auto"
         >
-          <button className="squishy-btn text-yellow-900 px-6 py-4 sm:px-8 sm:py-5 rounded-[40px] font-black text-base sm:text-[1.1rem] uppercase tracking-widest border-2 border-white/80 flex items-center gap-2 sm:gap-3 whitespace-nowrap">
+          <button 
+            onClick={() => setIsCreateModalOpen(true)}
+            className="squishy-btn text-yellow-900 px-6 py-4 sm:px-8 sm:py-5 rounded-[40px] font-black text-base sm:text-[1.1rem] uppercase tracking-widest border-2 border-white/80 flex items-center gap-2 sm:gap-3 whitespace-nowrap"
+          >
             <span className="text-xl sm:text-2xl drop-shadow-sm inner-glow-text text-white">✚</span> POST QUEST
           </button>
         </motion.div>
       </div>
+
+      {/* Quest Creation Overlay */}
+      <CreateQuestModal 
+        isOpen={isCreateModalOpen} 
+        onClose={() => setIsCreateModalOpen(false)} 
+        onSubmit={(data) => {
+          console.log("Mock Submit Data:", data);
+          setIsCreateModalOpen(false);
+          alert(`Deploying Quest:\n${data.title}\nfor ${data.bounty} Credits!`);
+        }}
+      />
     </div>
   );
 }

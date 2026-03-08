@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 
 export default function ProfilePage() {
   return (
-    <main className="w-full min-h-[100dvh] bg-[#0a0f1a] text-slate-100 overflow-y-auto pb-10" style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
+    <main className="w-full min-h-[100dvh] bg-[#0a0f1a] text-slate-100 overflow-y-auto pb-10" style={{ paddingTop: 'var(--sat)', paddingBottom: 'var(--sab)' }}>
       <div className="relative w-full">
         
         {/* Antigravity Header */}
