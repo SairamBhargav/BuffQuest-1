@@ -142,7 +142,7 @@ export default function RegisterPage() {
             {message}
           </div>
         )}
-        
+
         {error && (
           <div className="mt-4 p-4 text-sm text-red-700 bg-red-100 rounded-lg text-center font-medium flex flex-col gap-1">
             <span>{error}</span>
