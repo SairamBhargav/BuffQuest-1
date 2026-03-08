@@ -1,29 +1,21 @@
-"""SQLAlchemy model for the ``profiles`` table."""
+"""SQLAlchemy model for the ``user`` table."""
 
-import uuid
 from datetime import datetime
 
 from sqlalchemy import Boolean, DateTime, Integer, String, Text, func
-from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
 
 
 class Profile(Base):
-    """Maps to ``public.profiles``.
+    """Maps to ``user`` (better-auth table)."""
 
-    The primary key is the Supabase ``auth.users.id`` UUID, inserted
-    automatically by the ``handle_new_user`` trigger defined in the
-    SQL migration.
-    """
-
-    __tablename__ = "profiles"
-    __table_args__ = {"schema": "public"}
+    __tablename__ = "user"
 
     # ── columns ──────────────────────────────────────────────
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    id: Mapped[str] = mapped_column(
+        String, primary_key=True
     )
     email: Mapped[str | None] = mapped_column(
         Text, unique=True, index=True

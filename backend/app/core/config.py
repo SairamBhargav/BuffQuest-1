@@ -39,4 +39,4 @@ def get_settings() -> Settings:
         async def example(settings: Settings = Depends(get_settings)):
             ...
     """
-    return Settings()
+    return Settings()  # type: ignore[call-arg]

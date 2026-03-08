@@ -6,7 +6,7 @@ from app.state_machine.quest_state_machine import (
     claim_quest,
     complete_quest,
     quest_db,
-    Quest,
+    QuestMachineState,
     QuestStatus,
 )
 
@@ -20,8 +20,8 @@ def clear_db():
 
 
 @pytest.fixture
-def open_quest() -> Quest:
-    quest = Quest(
+def open_quest() -> QuestMachineState:
+    quest = QuestMachineState(
         id="q1",
         creator_id="user1",
         title="Get Coffee",
@@ -34,14 +34,14 @@ def open_quest() -> Quest:
 
 
 @pytest.fixture
-def in_progress_quest() -> Quest:
-    quest = Quest(
+def claimed_quest() -> QuestMachineState:
+    quest = QuestMachineState(
         id="q2",
         creator_id="user1",
         hunter_id="user2",
         title="Get Coffee",
         description="Please get me an iced latte from the UMC",
-        status=QuestStatus.IN_PROGRESS,
+        status=QuestStatus.CLAIMED,
         created_at=datetime.utcnow(),
         claimed_at=datetime.utcnow()
     )
@@ -56,7 +56,7 @@ def test_claim_quest_success(open_quest):
     updated_quest = claim_quest(open_quest.id, hunter_id)
     
     assert updated_quest.hunter_id == hunter_id
-    assert updated_quest.status == QuestStatus.IN_PROGRESS
+    assert updated_quest.status == QuestStatus.CLAIMED
     assert updated_quest.claimed_at is not None
     assert quest_db[open_quest.id] == updated_quest
 
@@ -69,9 +69,9 @@ def test_claim_quest_not_found():
     assert exc_info.value.detail == "Quest not found"
 
 
-def test_claim_quest_not_open(in_progress_quest):
+def test_claim_quest_not_open(claimed_quest):
     with pytest.raises(HTTPException) as exc_info:
-        claim_quest(in_progress_quest.id, "user3")
+        claim_quest(claimed_quest.id, "user3")
     
     assert exc_info.value.status_code == status.HTTP_409_CONFLICT
     assert exc_info.value.detail == "Quest is not open for claiming"
@@ -87,13 +87,13 @@ def test_claim_quest_self_claim(open_quest):
 
 # --- complete_quest tests ---
 
-def test_complete_quest_success(in_progress_quest):
-    hunter_id = in_progress_quest.hunter_id
-    updated_quest = complete_quest(in_progress_quest.id, hunter_id)
+def test_complete_quest_success(claimed_quest):
+    hunter_id = claimed_quest.hunter_id
+    updated_quest = complete_quest(claimed_quest.id, hunter_id)
     
-    assert updated_quest.status == QuestStatus.PENDING_VERIFICATION
+    assert updated_quest.status == QuestStatus.COMPLETED
     assert updated_quest.completed_at is not None
-    assert quest_db[in_progress_quest.id] == updated_quest
+    assert quest_db[claimed_quest.id] == updated_quest
 
 
 def test_complete_quest_not_found():
@@ -104,17 +104,17 @@ def test_complete_quest_not_found():
     assert exc_info.value.detail == "Quest not found"
 
 
-def test_complete_quest_not_in_progress(open_quest):
+def test_complete_quest_not_claimed(open_quest):
     with pytest.raises(HTTPException) as exc_info:
         complete_quest(open_quest.id, "user2")
     
     assert exc_info.value.status_code == status.HTTP_409_CONFLICT
-    assert exc_info.value.detail == "Quest is not in progress"
+    assert exc_info.value.detail == "Quest is not claimed"
 
 
-def test_complete_quest_wrong_hunter(in_progress_quest):
+def test_complete_quest_wrong_hunter(claimed_quest):
     with pytest.raises(HTTPException) as exc_info:
-        complete_quest(in_progress_quest.id, "user3")  # user3 is not the assigned hunter user2
+        complete_quest(claimed_quest.id, "user3")  # user3 is not the assigned hunter user2
     
     assert exc_info.value.status_code == status.HTTP_403_FORBIDDEN
     assert exc_info.value.detail == "Only the assigned hunter can complete this quest"

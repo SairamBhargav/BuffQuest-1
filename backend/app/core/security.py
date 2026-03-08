@@ -8,7 +8,6 @@ Provides FastAPI dependencies to protect routes:
   role from the JWT ``user_metadata``.
 """
 
-import uuid
 from typing import Annotated
 
 import jwt
@@ -87,13 +86,13 @@ async def get_current_user(
         HTTPAuthorizationCredentials, Depends(_bearer_scheme)
     ],
     settings: Annotated[Settings, Depends(get_settings)],
-) -> uuid.UUID:
+) -> str:
     """Dependency that returns the authenticated Supabase user's UUID.
 
     Usage::
 
         @router.get("/protected")
-        async def protected(user_id: uuid.UUID = Depends(get_current_user)):
+        async def protected(user_id: str = Depends(get_current_user)):
             ...
     """
     payload = verify_token(credentials.credentials, settings)
@@ -106,7 +105,7 @@ async def get_current_user(
         )
 
     try:
-        return uuid.UUID(sub)
+        return sub
     except ValueError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -132,7 +131,7 @@ def require_role(*allowed_roles: str):
             HTTPAuthorizationCredentials, Depends(_bearer_scheme)
         ],
         settings: Annotated[Settings, Depends(get_settings)],
-    ) -> uuid.UUID:
+    ) -> str:
         payload = verify_token(credentials.credentials, settings)
 
         user_meta = payload.get("user_metadata", {})
@@ -152,7 +151,7 @@ def require_role(*allowed_roles: str):
             )
 
         try:
-            return uuid.UUID(sub)
+            return sub
         except ValueError:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
