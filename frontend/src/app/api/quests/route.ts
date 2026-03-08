@@ -79,7 +79,7 @@ Return ONLY valid JSON in this exact format:
     return NextResponse.json({ success: true, quest: rows[0] }, { status: 201 });
 
   } catch (error: unknown) {
-    console.error("DEBUG API ERROR:", error);
+    console.error("API processing error:", error);
     return NextResponse.json(
       { error: "Internal server error processing quest." },
       { status: 500 }

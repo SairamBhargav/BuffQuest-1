@@ -1,6 +1,5 @@
 """Attendance endpoints - ``/attendance/…``."""
 
-import uuid
 from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status

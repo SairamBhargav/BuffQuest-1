@@ -1,7 +1,6 @@
 """SQLAlchemy model for the ``attendance_submissions`` table."""
 
 import enum
-import uuid
 from datetime import datetime
 
 from sqlalchemy import BigInteger, Boolean, DateTime, Enum, ForeignKey, String, Text, func
@@ -34,7 +33,7 @@ class AttendanceSubmission(Base):
     class_name: Mapped[str] = mapped_column(Text, nullable=False)
     building_zone_id: Mapped[int | None] = mapped_column(
         BigInteger,
-        ForeignKey("building_zones.id", ondelete="SET NULL"),
+        ForeignKey("public.building_zones.id", ondelete="SET NULL"),
     )
     scheduled_start_time: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False

@@ -5,8 +5,6 @@ authenticated user, so tests run without a live database.
 """
 
 import os
-import uuid
-from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock
 
 # Ensure required env vars exist *before* any app imports trigger
@@ -37,8 +35,8 @@ from app.models import reward_log as _m6     # noqa: F401
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
-MOCK_USER_ID = uuid.UUID("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")
-OTHER_USER_ID = uuid.UUID("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb")
+MOCK_USER_ID = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+OTHER_USER_ID = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"
 
 
 # ---------------------------------------------------------------------------
@@ -62,6 +60,8 @@ def mock_db():
     ``.scalars().all()`` return values as needed.
     """
     session = AsyncMock()
+    session.add = MagicMock()
+    session.delete = MagicMock()
 
     # Default: execute() returns a result proxy mock
     result_mock = MagicMock()

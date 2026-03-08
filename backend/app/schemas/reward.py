@@ -1,7 +1,5 @@
 """Pydantic schemas for the reward system."""
 
-import uuid
-
 from pydantic import BaseModel, ConfigDict
 
 
@@ -11,7 +9,7 @@ class RewardResult(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     quest_id: int
-    hunter_id: uuid.UUID | None = None
+    hunter_id: str | None = None
     credits_awarded: int
     notoriety_awarded: int
     status: str

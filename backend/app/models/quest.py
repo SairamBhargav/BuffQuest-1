@@ -1,11 +1,9 @@
 """SQLAlchemy model for the ``quests`` table."""
 
 import enum
-import uuid
 from datetime import datetime
 
-from sqlalchemy import BigInteger, DateTime, Enum, ForeignKey, Integer, Text, func
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import BigInteger, DateTime, Enum, ForeignKey, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -36,14 +34,15 @@ class Quest(Base):
 
     # ── columns ──────────────────────────────────────────────
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    creator_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
-        ForeignKey("public.profiles.id", ondelete="CASCADE"),
+    creator_id: Mapped[str] = mapped_column(
+        String,
+        ForeignKey("user.id", ondelete="CASCADE"),
         nullable=False,
     )
-    hunter_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True),
-        ForeignKey("public.profiles.id", ondelete="SET NULL"),
+    hunter_id: Mapped[str | None] = mapped_column(
+        String,
+        ForeignKey("user.id", ondelete="SET NULL"),
+        nullable=True,
     )
     title: Mapped[str] = mapped_column(Text, nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False)
@@ -87,10 +86,14 @@ class Quest(Base):
 
     # ── relationships ────────────────────────────────────────
     creator = relationship(
-        "Profile", back_populates="created_quests", foreign_keys=[creator_id]
+        "Profile",
+        foreign_keys=[creator_id],
+        back_populates="created_quests",
     )
     hunter = relationship(
-        "Profile", back_populates="hunted_quests", foreign_keys=[hunter_id]
+        "Profile",
+        foreign_keys=[hunter_id],
+        back_populates="hunted_quests",
     )
     building_zone = relationship("BuildingZone", back_populates="quests")
     messages = relationship(

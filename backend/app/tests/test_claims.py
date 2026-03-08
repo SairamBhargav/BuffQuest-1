@@ -2,15 +2,10 @@
 
 import uuid
 from datetime import datetime, timezone
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
-import pytest_asyncio
-from httpx import ASGITransport, AsyncClient
 
-from app.core.database import get_db
-from app.core.security import get_current_user
-from app.main import app
 from app.models.quest import Quest, QuestStatus
 
 from .conftest import MOCK_USER_ID, OTHER_USER_ID
@@ -24,8 +19,8 @@ pytestmark = pytest.mark.asyncio
 
 def _make_quest(
     quest_id: int = 1,
-    creator_id: uuid.UUID = OTHER_USER_ID,
-    hunter_id: uuid.UUID | None = None,
+    creator_id: str = OTHER_USER_ID,
+    hunter_id: str | None = None,
     status: QuestStatus = QuestStatus.OPEN,
 ) -> MagicMock:
     """Return a mock Quest row."""

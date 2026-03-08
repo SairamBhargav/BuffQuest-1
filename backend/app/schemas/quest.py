@@ -1,6 +1,5 @@
 """Pydantic schemas for the ``quests`` table."""
 
-import uuid
 from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -31,11 +30,14 @@ class QuestRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
-    creator_id: uuid.UUID
-    hunter_id: uuid.UUID | None = None
+    creator_id: str
+    hunter_id: str | None = None
     title: str
     description: str
     building_zone_id: int
+    building_name: str | None = None
+    latitude: float | None = None
+    longitude: float | None = None
     cost_credits: int
     reward_credits: int
     reward_notoriety: int

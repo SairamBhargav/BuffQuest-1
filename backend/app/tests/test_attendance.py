@@ -1,8 +1,7 @@
 """Tests for attendance endpoints (``/api/attendance/…``)."""
 
-import uuid
 from datetime import datetime, timezone
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -19,7 +18,7 @@ pytestmark = pytest.mark.asyncio
 
 def _make_submission(
     submission_id: int = 1,
-    user_id: uuid.UUID = MOCK_USER_ID,
+    user_id: str = MOCK_USER_ID,
 ) -> MagicMock:
     """Return a mock AttendanceSubmission row."""
     sub = MagicMock(spec=AttendanceSubmission)
@@ -46,14 +45,25 @@ async def test_check_in_success(mock_user, mock_db, client):
 
     # db.refresh() is called after commit — simulate what the DB would
     # return by filling in server-defaulted columns on the ORM object.
-    async def _fake_refresh(obj, *args, **kwargs):
+    def _fake_add(obj, *args, **kwargs):
         obj.id = 1
         obj.submission_time = datetime.now(timezone.utc)
         obj.verification_status = AttendanceVerificationStatus.PENDING
         obj.reward_issued = False
         obj.created_at = datetime.now(timezone.utc)
 
-    mock_db.refresh = AsyncMock(side_effect=_fake_refresh)
+    mock_db.add = MagicMock(side_effect=_fake_add)
+
+    # DB sequence: 1. check dup (None), 2. get profile (mock)
+    dup_result = MagicMock()
+    dup_result.scalars.return_value.first.return_value = None
+
+    profile_result = MagicMock()
+    profile_mock = MagicMock()
+    profile_mock.credits = 100
+    profile_result.scalar_one_or_none.return_value = profile_mock
+
+    mock_db.execute.side_effect = [dup_result, profile_result]
 
     resp = await client.post(
         "/api/attendance/check-in",
@@ -67,7 +77,7 @@ async def test_check_in_success(mock_user, mock_db, client):
     )
 
     assert resp.status_code == 201
-    mock_db.add.assert_called_once()
+    assert mock_db.add.call_count == 2
     mock_db.commit.assert_awaited_once()
     mock_db.refresh.assert_awaited_once()
 

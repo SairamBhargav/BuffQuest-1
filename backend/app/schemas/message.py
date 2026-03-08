@@ -1,6 +1,5 @@
 """Pydantic schemas for the ``messages`` table."""
 
-import uuid
 from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -19,6 +18,6 @@ class MessageRead(BaseModel):
 
     id: int
     quest_id: int
-    sender_id: uuid.UUID
+    sender_id: str
     text: str
     created_at: datetime

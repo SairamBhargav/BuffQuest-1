@@ -63,7 +63,7 @@ def complete_quest(quest_id: str, user_id: str) -> QuestMachineState:
     quest = quest_db[quest_id]
 
     if quest.status != QuestStatus.CLAIMED:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Quest is not in progress")
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Quest is not claimed")
 
     if quest.hunter_id != user_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only the assigned hunter can complete this quest")

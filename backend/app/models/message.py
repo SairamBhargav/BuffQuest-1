@@ -1,10 +1,8 @@
 """SQLAlchemy model for the ``messages`` table."""
 
-import uuid
 from datetime import datetime
 
-from sqlalchemy import BigInteger, DateTime, ForeignKey, Text, func
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import BigInteger, DateTime, ForeignKey, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -27,9 +25,9 @@ class Message(Base):
         ForeignKey("public.quests.id", ondelete="CASCADE"),
         nullable=False,
     )
-    sender_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
-        ForeignKey("public.profiles.id", ondelete="CASCADE"),
+    sender_id: Mapped[str] = mapped_column(
+        String,
+        ForeignKey("user.id", ondelete="CASCADE"),
         nullable=False,
     )
     text: Mapped[str] = mapped_column(Text, nullable=False)
