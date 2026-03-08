@@ -61,12 +61,12 @@ class Quest(Base):
         Integer, nullable=False, default=0
     )
     status: Mapped[QuestStatus] = mapped_column(
-        Enum(QuestStatus, name="quest_status", schema="public", create_type=False),
+        Enum(QuestStatus, name="quest_status", schema="public", create_type=False, values_callable=lambda x: [e.value for e in x]),
         nullable=False,
         default=QuestStatus.OPEN,
     )
     moderation_status: Mapped[ModerationStatus] = mapped_column(
-        Enum(ModerationStatus, name="moderation_status", schema="public", create_type=False),
+        Enum(ModerationStatus, name="moderation_status", schema="public", create_type=False, values_callable=lambda x: [e.value for e in x]),
         nullable=False,
         default=ModerationStatus.PENDING,
     )

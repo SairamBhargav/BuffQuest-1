@@ -43,37 +43,13 @@ export default function CreateQuestModal({ isOpen, onClose }: CreateQuestModalPr
     setIsSubmitting(true);
     setModerationError("");
 
-    try {
-      const response = await fetch('/api/quests', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title,
-          description,
-          buildingId: zoneIndex,
-          rewardCredits: bounty,
-          creatorId: user.id,
-          skipDb: true
-        })
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        setModerationError(data.error || "Quest flagged by AI moderation. Please revise your quest.");
-        setIsSubmitting(false);
-        return;
-      }
-    } catch (err) {
-      setModerationError("Could not connect to AI moderation server.");
-      setIsSubmitting(false);
-      return;
-    }
+    // AI Moderation and Database insertion are now handled in context.addQuest
 
     const result = await addQuest({
       title,
       description,
       bounty,
+      buildingId: zoneIndex + 1, // Pass ID (1-based index)
       longitude: selectedZone.lng,
       latitude: selectedZone.lat,
       building: selectedZone.name,
@@ -82,7 +58,8 @@ export default function CreateQuestModal({ isOpen, onClose }: CreateQuestModalPr
     setIsSubmitting(false);
 
     if (!result.success) {
-      addToast(result.error || "Failed to post quest.", "error");
+      setModerationError(result.error || "Failed to post quest.");
+      setIsSubmitting(false);
       return;
     }
 

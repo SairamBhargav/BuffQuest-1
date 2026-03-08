@@ -42,9 +42,29 @@ const typeIcons: Record<ToastType, string> = {
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
 
-  const addToast = useCallback((message: string, type: ToastType = "info") => {
+  const addToast = useCallback((message: any, type: ToastType = "info") => {
+    let finalMessage = message;
+
+    // Safety check: if message is an object or array (common for Pydantic/Backend errors)
+    if (typeof message === "object" && message !== null) {
+      try {
+        // If it's a Pydantic-style error with a 'detail' or 'msg' field
+        if (message.detail) {
+          finalMessage = Array.isArray(message.detail) 
+            ? message.detail.map((err: any) => err.msg || JSON.stringify(err)).join(", ")
+            : typeof message.detail === 'string' ? message.detail : JSON.stringify(message.detail);
+        } else if (message.msg) {
+          finalMessage = message.msg;
+        } else {
+          finalMessage = JSON.stringify(message);
+        }
+      } catch (e) {
+        finalMessage = "An unexpected error occurred.";
+      }
+    }
+
     const id = Date.now().toString() + Math.random().toString(36).slice(2);
-    setToasts((prev) => [...prev, { id, message, type }]);
+    setToasts((prev) => [...prev, { id, message: String(finalMessage), type }]);
     setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
     }, TOAST_DURATION);

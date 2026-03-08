@@ -133,7 +133,12 @@ export function QuestProvider({ children }: { children: ReactNode }) {
       if (userResult.status === "fulfilled") {
         if (userResult.value.ok) {
           const userData = await readJson(userResult.value);
-          setUser(userData ? normalizeUser(userData) : null);
+          if (userData && typeof userData === 'object' && userData.id) {
+            setUser(normalizeUser(userData));
+          } else {
+            console.error("Invalid user data received", userData);
+            setUser(null);
+          }
         } else if (userResult.value.status === 401) {
           setUser(null);
         } else {
@@ -182,15 +187,27 @@ export function QuestProvider({ children }: { children: ReactNode }) {
     }
 
     try {
-      // First hit AI Moderation
+      // First hit AI Moderation Check (Next.js API route)
       const modRes = await fetch("/api/quests", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...questData, skipDb: true }),
+        body: JSON.stringify({ 
+          title: questData.title,
+          description: questData.description,
+          buildingId: questData.buildingId,
+          rewardCredits: questData.bounty,
+          creatorId: user.id,
+          skipDb: true 
+        }),
       });
+
+      const modResult = await modRes.json();
+
       if (!modRes.ok) {
-        const modErr = await modRes.json();
-        return { success: false, error: modErr.error || "Quest flagged by AI Moderation." };
+        return { 
+          success: false, 
+          error: modResult.detail || modResult.error || "Quest flagged by AI Moderation." 
+        };
       }
 
       // Then hit FastAPI Backend
@@ -206,9 +223,13 @@ export function QuestProvider({ children }: { children: ReactNode }) {
 
       const res = await fetch(`${apiBase}/quests`, fetchOpts("POST", backendPayload));
       const resData = await res.json();
-      
+
       if (!res.ok) {
-        return { success: false, error: resData.detail || "Database error creating quest." };
+        const errorMsg = resData.detail || resData.error || "Database error creating quest.";
+        return { 
+          success: false, 
+          error: typeof errorMsg === 'string' ? errorMsg : JSON.stringify(errorMsg) 
+        };
       }
 
       // Refresh data to show new quest
