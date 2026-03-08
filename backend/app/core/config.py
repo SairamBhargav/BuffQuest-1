@@ -7,6 +7,7 @@ plain function call.
 
 from functools import lru_cache
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -15,6 +16,15 @@ class Settings(BaseSettings):
 
     # ---- Required (no default – fails fast if missing) ----
     DATABASE_URL: str
+
+    @field_validator("DATABASE_URL")
+    @classmethod
+    def assemble_db_connection(cls, v: str) -> str:
+        if v.startswith("postgres://"):
+            v = v.replace("postgres://", "postgresql://", 1)
+        if v.startswith("postgresql://"):
+            v = v.replace("postgresql://", "postgresql+asyncpg://", 1)
+        return v
 
     # ---- Empty-string defaults for dev convenience ----
     NEXT_PUBLIC_MAPBOX_TOKEN: str = ""
