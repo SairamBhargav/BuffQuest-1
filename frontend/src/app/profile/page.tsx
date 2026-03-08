@@ -40,8 +40,6 @@ export default function ProfilePage() {
   const [chatRole, setChatRole] = useState<"creator" | "hunter">("hunter");
   const [activeTab, setActiveTab] = useState<"active" | "posted">("active");
 
-  if (!user) return null;
-
   const openChat = (quest: Quest) => {
     setActiveChatQuest(quest);
     setChatRole(quest.creatorId === user.id ? "creator" : "hunter");

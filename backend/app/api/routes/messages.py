@@ -2,17 +2,15 @@
 
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-import httpx
 
 from app.core.database import get_db
 from app.core.security import get_current_user
 from app.models.message import Message
 from app.models.quest import Quest
 from app.schemas.message import MessageCreate, MessageRead
-from app.services.chat_service import manager
 
 router = APIRouter(prefix="/quests", tags=["messages"])
 
@@ -83,76 +81,6 @@ async def send_message(
     await db.commit()
     await db.refresh(message)
     return message
-
-
-# ------------------------------------------------------------------
-# WebSocket /quests/{quest_id}/ws
-# ------------------------------------------------------------------
-@router.websocket("/{quest_id}/ws")
-async def chat_websocket(
-    websocket: WebSocket,
-    quest_id: int,
-    db: AsyncSession = Depends(get_db)
-):
-    """Real-time authenticated chat connection."""
-    cookie_header = websocket.headers.get("cookie")
-    if not cookie_header:
-        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
-        return
-        
-    async with httpx.AsyncClient(timeout=5.0) as client:
-        try:
-            resp = await client.get(
-                "http://localhost:3000/api/auth/get-session",
-                headers={"Cookie": cookie_header}
-            )
-            if resp.status_code != 200:
-                await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
-                return
-            data = resp.json()
-            if not data or "user" not in data:
-                await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
-                return
-            user_id = data["user"]["id"]
-        except httpx.RequestError:
-            await websocket.close(code=status.WS_1011_INTERNAL_ERROR)
-            return
-
-    try:
-        quest = await _get_quest_or_404(quest_id, db)
-        _assert_participant(quest, user_id)
-        if quest.status not in ("claimed", "completed"):
-            await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
-            return
-    except HTTPException:
-        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
-        return
-
-    await manager.connect(quest_id, websocket)
-    try:
-        while True:
-            text = await websocket.receive_text()
-            
-            message = Message(
-                quest_id=quest_id,
-                sender_id=user_id,
-                text=text,
-            )
-            db.add(message)
-            await db.commit()
-            await db.refresh(message)
-            
-            payload = {
-                "id": str(message.id),
-                "quest_id": quest_id,
-                "sender_id": user_id,
-                "text": text,
-                "created_at": message.created_at.isoformat()
-            }
-            await manager.broadcast(quest_id, payload)
-            
-    except WebSocketDisconnect:
-        manager.disconnect(quest_id, websocket)
 
 
 # ------------------------------------------------------------------

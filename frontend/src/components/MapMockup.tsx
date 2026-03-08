@@ -71,7 +71,6 @@ export default function MapMockup() {
   }, []);
 
   if (!isClient) return null;
-  if (!user) return null;
 
   const isLightMap = lightPreset === "day" || lightPreset === "dawn";
   const glassChip = isLightMap

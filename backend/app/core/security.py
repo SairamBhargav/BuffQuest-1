@@ -8,18 +8,86 @@ Provides FastAPI dependencies to protect routes:
   role from the JWT ``user_metadata``.
 """
 
-import httpx
-from fastapi import Depends, HTTPException, Request, status
+from typing import Annotated
+
+import jwt
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from app.core.config import Settings, get_settings
+
+# Reusable security scheme (auto-documents the "Authorize" button in
+# Swagger UI).
+_bearer_scheme = HTTPBearer()
+
+
+# ------------------------------------------------------------------
+# Token helpers
+# ------------------------------------------------------------------
+
+def verify_token(
+    token: str,
+    settings: Settings,
+    *,
+    algorithms: list[str] | None = None,
+) -> dict:
+    """Decode and verify a Supabase-issued JWT.
+
+    Parameters
+    ----------
+    token:
+        The raw JWT string (without the "Bearer " prefix).
+    settings:
+        Application settings containing the JWT secret.
+    algorithms:
+        Allowed signing algorithms.  Defaults to ``["HS256"]``
+        (Supabase's default).
+
+    Returns
+    -------
+    dict
+        The decoded JWT payload on success.
+
+    Raises
+    ------
+    HTTPException (401)
+        If the token is expired, malformed, or otherwise invalid.
+    """
+    if algorithms is None:
+        algorithms = ["HS256"]
+
+    try:
+        payload: dict = jwt.decode(
+            token,
+            settings.SUPABASE_JWT_SECRET,
+            algorithms=algorithms,
+            options={"verify_aud": False},
+        )
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token has expired",
+        )
+    except jwt.InvalidTokenError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication token",
+        )
+
+    return payload
 
 
 # ------------------------------------------------------------------
 # FastAPI dependencies
 # ------------------------------------------------------------------
 
-async def get_current_user(request: Request) -> str:
-    """Dependency that returns the authenticated user's UUID from better-auth.
+async def get_current_user(
+    credentials: Annotated[
+        HTTPAuthorizationCredentials, Depends(_bearer_scheme)
+    ],
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> str:
+    """Dependency that returns the authenticated Supabase user's UUID.
 
     Usage::
 
@@ -27,57 +95,67 @@ async def get_current_user(request: Request) -> str:
         async def protected(user_id: str = Depends(get_current_user)):
             ...
     """
-    auth_header = request.headers.get("Authorization")
-    cookie_header = request.headers.get("Cookie")
-    
-    headers = {}
-    if auth_header:
-        headers["Authorization"] = auth_header
-    if cookie_header:
-        headers["Cookie"] = cookie_header
-        
-    if not headers:
+    payload = verify_token(credentials.credentials, settings)
+
+    sub = payload.get("sub")
+    if sub is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="No authentication credentials provided",
+            detail="Token missing subject claim",
         )
 
-    # Proxy the credentials mapping to the Next.js better-auth server
-    async with httpx.AsyncClient(timeout=5.0) as client:
-        try:
-            resp = await client.get(
-                "http://localhost:3000/api/auth/get-session",
-                headers=headers
-            )
-            if resp.status_code != 200:
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Invalid or expired session",
-                )
-            
-            data = resp.json()
-            if not data or "user" not in data:
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Invalid session format returned from auth server",
-                )
-            
-            return data["user"]["id"]
-        except httpx.RequestError as e:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Auth server unreachable: {e}",
-            )
+    try:
+        return sub
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid user ID in token",
+        )
 
 
 def require_role(*allowed_roles: str):
     """Dependency factory that enforces role-based access.
 
-    Raises **403 Forbidden** if the role is not supported.
-    *(Role validation can be expanded by checking user table or session metadata).*
+    Reads ``user_metadata.role`` from the Supabase JWT payload and
+    raises **403 Forbidden** if the role is not in *allowed_roles*.
+
+    Usage::
+
+        @router.delete("/admin-only", dependencies=[Depends(require_role("admin"))])
+        async def admin_only():
+            ...
     """
-    async def _check_role(request: Request) -> str:
-        # Currently, BuffQuest users are standard roles. We validate active session only.
-        return await get_current_user(request)
+
+    async def _check_role(
+        credentials: Annotated[
+            HTTPAuthorizationCredentials, Depends(_bearer_scheme)
+        ],
+        settings: Annotated[Settings, Depends(get_settings)],
+    ) -> str:
+        payload = verify_token(credentials.credentials, settings)
+
+        user_meta = payload.get("user_metadata", {})
+        role = user_meta.get("role", "user")
+
+        if role not in allowed_roles:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Role '{role}' is not authorized for this action",
+            )
+
+        sub = payload.get("sub")
+        if sub is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Token missing subject claim",
+            )
+
+        try:
+            return sub
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid user ID in token",
+            )
 
     return _check_role
