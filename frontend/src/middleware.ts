@@ -1,18 +1,21 @@
 import { type NextRequest, NextResponse } from 'next/server'
-import { auth } from '@/lib/auth'
-import { headers } from "next/headers";
 
 export async function middleware(request: NextRequest) {
-  // Check the session securely using better-auth on the server
-  const session = await auth.api.getSession({
-    headers: await headers()
+  // Check the session securely by hitting the better-auth API via fetch
+  // We use fetch instead of importing `auth` to prevent the Edge runtime from loading Node.js native libraries (like pg, crypto).
+  const sessionResponse = await fetch(`${request.nextUrl.origin}/api/auth/get-session`, {
+    headers: {
+      cookie: request.headers.get("cookie") || "",
+    },
   });
 
-  const isProtectedRoute = request.nextUrl.pathname.startsWith('/map') || 
-                           request.nextUrl.pathname.startsWith('/quests') ||
-                           request.nextUrl.pathname.startsWith('/attendance') ||
-                           request.nextUrl.pathname.startsWith('/profile') ||
-                           request.nextUrl.pathname.startsWith('/leaderboard')
+  const session = sessionResponse.ok ? await sessionResponse.json() : null;
+
+  const isProtectedRoute = request.nextUrl.pathname.startsWith('/map') ||
+    request.nextUrl.pathname.startsWith('/quests') ||
+    request.nextUrl.pathname.startsWith('/attendance') ||
+    request.nextUrl.pathname.startsWith('/profile') ||
+    request.nextUrl.pathname.startsWith('/leaderboard')
 
   if (isProtectedRoute && !session) {
     const url = request.nextUrl.clone()
@@ -21,10 +24,10 @@ export async function middleware(request: NextRequest) {
   }
 
   // Redirect authenticated users away from auth pages
-  const isAuthRoute = request.nextUrl.pathname.startsWith('/login') || 
-                      request.nextUrl.pathname.startsWith('/register') ||
-                      request.nextUrl.pathname.startsWith('/forgot-password') ||
-                      request.nextUrl.pathname.startsWith('/update-password')
+  const isAuthRoute = request.nextUrl.pathname.startsWith('/login') ||
+    request.nextUrl.pathname.startsWith('/register') ||
+    request.nextUrl.pathname.startsWith('/forgot-password') ||
+    request.nextUrl.pathname.startsWith('/update-password')
 
   if (isAuthRoute && session) {
     const url = request.nextUrl.clone()
