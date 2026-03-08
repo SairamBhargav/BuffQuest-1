@@ -11,7 +11,8 @@ export async function middleware(request: NextRequest) {
 
   const session = sessionResponse.ok ? await sessionResponse.json() : null;
 
-  const isProtectedRoute = request.nextUrl.pathname.startsWith('/map') ||
+  const isProtectedRoute = request.nextUrl.pathname === '/' ||
+    request.nextUrl.pathname.startsWith('/map') ||
     request.nextUrl.pathname.startsWith('/quests') ||
     request.nextUrl.pathname.startsWith('/attendance') ||
     request.nextUrl.pathname.startsWith('/profile') ||
@@ -20,6 +21,13 @@ export async function middleware(request: NextRequest) {
   if (isProtectedRoute && !session) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
+    return NextResponse.redirect(url)
+  }
+
+  // Redirect authenticated users from / to /map
+  if (request.nextUrl.pathname === '/' && session) {
+    const url = request.nextUrl.clone()
+    url.pathname = '/map'
     return NextResponse.redirect(url)
   }
 
