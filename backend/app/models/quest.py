@@ -17,6 +17,7 @@ class QuestStatus(str, enum.Enum):
     CLAIMED = "claimed"
     COMPLETED = "completed"
     VERIFIED = "verified"
+    REWARDED = "rewarded"
     CANCELLED = "cancelled"
     EXPIRED = "expired"
 

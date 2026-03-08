@@ -10,6 +10,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.models.quest import ModerationStatus, Quest, QuestStatus
 from app.schemas.quest import QuestCreate, QuestRead, QuestUpdate
+from app.schemas.reward import RewardResult
+from app.services.reward_service import deduct_quest_cost, issue_reward, refund_quest
 
 router = APIRouter(prefix="/quests", tags=["quests"])
 
@@ -61,7 +63,7 @@ async def create_quest(
     user_id: uuid.UUID,  # TODO: replace with Depends(get_current_user)
     db: AsyncSession = Depends(get_db),
 ):
-    """Create a new quest."""
+    """Create a new quest (deducts cost_credits from creator)."""
     quest = Quest(
         creator_id=user_id,
         title=payload.title,
@@ -75,6 +77,12 @@ async def create_quest(
         moderation_status=ModerationStatus.PENDING,
     )
     db.add(quest)
+    await db.flush()  # get quest.id before logging
+
+    # Deduct credits from creator (raises 402 if insufficient)
+    if quest.cost_credits > 0:
+        await deduct_quest_cost(db, user_id, quest)
+
     await db.commit()
     await db.refresh(quest)
     return quest
@@ -118,7 +126,7 @@ async def cancel_quest(
     user_id: uuid.UUID,  # TODO: replace with Depends(get_current_user)
     db: AsyncSession = Depends(get_db),
 ):
-    """Cancel a quest (creator only, must be ``open`` or ``claimed``)."""
+    """Cancel a quest (creator only, must be ``open`` or ``claimed``). Refunds credits."""
     result = await db.execute(select(Quest).where(Quest.id == quest_id))
     quest = result.scalar_one_or_none()
     if quest is None:
@@ -129,6 +137,10 @@ async def cancel_quest(
         raise HTTPException(status.HTTP_409_CONFLICT, "Quest cannot be cancelled in its current state")
 
     quest.status = QuestStatus.CANCELLED
+
+    # Refund cost_credits to creator
+    await refund_quest(db, quest)
+
     await db.commit()
     await db.refresh(quest)
     return quest
@@ -184,3 +196,38 @@ async def verify_quest(
     await db.commit()
     await db.refresh(quest)
     return quest
+
+
+# ------------------------------------------------------------------
+# POST /quests/{quest_id}/reward
+# ------------------------------------------------------------------
+@router.post("/{quest_id}/reward", response_model=RewardResult)
+async def reward_quest(
+    quest_id: int,
+    user_id: uuid.UUID,  # TODO: replace with Depends(get_current_user)
+    db: AsyncSession = Depends(get_db),
+):
+    """Issue rewards for a verified quest (creator only).
+
+    Transitions ``VERIFIED → REWARDED`` and awards credits + notoriety
+    to the hunter. Can only be called once per quest.
+    """
+    result = await db.execute(select(Quest).where(Quest.id == quest_id))
+    quest = result.scalar_one_or_none()
+    if quest is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Quest not found")
+    if quest.creator_id != user_id:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Not the quest creator")
+
+    log = await issue_reward(db, quest)
+
+    await db.commit()
+    await db.refresh(quest)
+
+    return RewardResult(
+        quest_id=quest.id,
+        hunter_id=quest.hunter_id,
+        credits_awarded=quest.reward_credits,
+        notoriety_awarded=quest.reward_notoriety,
+        status=quest.status.value,
+    )
