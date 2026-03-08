@@ -63,7 +63,7 @@ export default function MapMockup() {
   if (!isClient) return null;
 
   return (
-    <div className="relative w-full h-full bg-gray-900">
+    <div className="relative w-full h-full bg-gray-900" style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
       {isTokenMissing && (
         <div className="absolute z-50 top-4 left-1/2 -translate-x-1/2 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg font-semibold flex flex-col items-center">
           <span>Mapbox Token Missing!</span>
@@ -74,31 +74,31 @@ export default function MapMockup() {
       )}
 
       {/* Map Overlay Header */}
-      <div className="absolute z-10 top-0 left-0 w-full p-6 pointer-events-none flex justify-between items-start">
-        <div className="flex gap-4 mt-2">
+      <div className="absolute z-10 top-0 left-0 w-full p-4 sm:p-6 pointer-events-none flex justify-between items-start" style={{ paddingTop: 'max(env(safe-area-inset-top, 0px), 1rem)' }}>
+        <div className="flex gap-2 sm:gap-4 mt-1 sm:mt-2 flex-wrap">
           {/* Liquid Glass Stats Cards */}
           <motion.div 
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            className="liquid-glass pointer-events-auto px-5 py-3 rounded-[40px] font-black shadow-lg flex items-center gap-2"
+            className="liquid-glass pointer-events-auto px-3 py-2 sm:px-5 sm:py-3 rounded-[40px] font-black shadow-lg flex items-center gap-1.5 sm:gap-2 text-sm sm:text-base"
           >
-            <span className="text-yellow-400 text-xl inner-glow-text drop-shadow-[0_0_8px_rgba(255,214,10,0.8)]">💰</span> 
-            <span className="text-slate-800 tracking-tight">250 <span className="text-xs text-slate-500 font-bold uppercase tracking-widest pl-1">Credits</span></span>
+            <span className="text-yellow-400 text-lg sm:text-xl inner-glow-text drop-shadow-[0_0_8px_rgba(255,214,10,0.8)]">💰</span> 
+            <span className="text-slate-800 tracking-tight">250 <span className="text-[10px] sm:text-xs text-slate-500 font-bold uppercase tracking-widest pl-0.5 sm:pl-1">Credits</span></span>
           </motion.div>
           <motion.div 
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            className="liquid-glass pointer-events-auto px-5 py-3 rounded-[40px] font-black shadow-lg flex items-center gap-2"
+            className="liquid-glass pointer-events-auto px-3 py-2 sm:px-5 sm:py-3 rounded-[40px] font-black shadow-lg flex items-center gap-1.5 sm:gap-2 text-sm sm:text-base"
           >
-            <span className="text-purple-500 text-xl inner-glow-text drop-shadow-[0_0_8px_rgba(168,85,247,0.8)]">🔥</span> 
-            <span className="text-slate-800 tracking-tight">12 <span className="text-xs text-slate-500 font-bold uppercase tracking-widest pl-1">Notoriety</span></span>
+            <span className="text-purple-500 text-lg sm:text-xl inner-glow-text drop-shadow-[0_0_8px_rgba(168,85,247,0.8)]">🔥</span> 
+            <span className="text-slate-800 tracking-tight">12 <span className="text-[10px] sm:text-xs text-slate-500 font-bold uppercase tracking-widest pl-0.5 sm:pl-1">Notoriety</span></span>
           </motion.div>
         </div>
 
         {/* Squishy Profile Avatar */}
         <Link 
           href="/profile" 
-          className="liquid-glass pointer-events-auto h-14 w-14 rounded-full shadow-lg flex items-center justify-center text-3xl hover:scale-105 active:scale-90 transition-transform mt-2 relative border-white/60"
+          className="liquid-glass pointer-events-auto h-11 w-11 sm:h-14 sm:w-14 rounded-full shadow-lg flex items-center justify-center text-2xl sm:text-3xl hover:scale-105 active:scale-90 transition-transform mt-1 sm:mt-2 relative border-white/60 shrink-0"
         >
           🧑‍🎓
         </Link>
@@ -200,15 +200,15 @@ export default function MapMockup() {
       </Map>
 
       {/* Thumb Zone Drawer Action Area */}
-      <div className="absolute z-10 bottom-8 left-0 w-full pointer-events-none flex items-start justify-center">
+      <div className="absolute z-10 bottom-6 sm:bottom-8 left-0 w-full pointer-events-none flex items-start justify-center" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
         {/* Floating Action Bubble */}
         <motion.div 
           whileHover={{ y: -4 }}
           whileTap={{ scale: 0.9, y: 2 }}
           className="pointer-events-auto"
         >
-          <button className="squishy-btn text-yellow-900 px-8 py-5 rounded-[40px] font-black text-[1.1rem] uppercase tracking-widest border-2 border-white/80 flex items-center gap-3">
-            <span className="text-2xl drop-shadow-sm inner-glow-text text-white">✚</span> POST QUEST
+          <button className="squishy-btn text-yellow-900 px-6 py-4 sm:px-8 sm:py-5 rounded-[40px] font-black text-base sm:text-[1.1rem] uppercase tracking-widest border-2 border-white/80 flex items-center gap-2 sm:gap-3 whitespace-nowrap">
+            <span className="text-xl sm:text-2xl drop-shadow-sm inner-glow-text text-white">✚</span> POST QUEST
           </button>
         </motion.div>
       </div>

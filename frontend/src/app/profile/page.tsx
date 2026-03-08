@@ -7,7 +7,10 @@ export default function ProfilePage() {
   return (
     <main className="flex min-h-[100dvh] flex-col items-center justify-center bg-gray-950 sm:p-4">
       {/* Mobile-first Layout Container matching the Map */}
-      <div className="relative w-full h-[100dvh] sm:min-h-0 sm:w-[430px] sm:h-[932px] sm:max-h-[95vh] sm:rounded-[40px] sm:border-[12px] border-gray-900 overflow-y-auto shadow-2xl bg-[#0a0f1a] transition-all text-slate-100 pb-10">
+      <div className="
+        relative w-full h-[100dvh] overflow-y-auto bg-[#0a0f1a] transition-all text-slate-100 pb-10
+        sm:min-h-0 sm:w-[430px] sm:h-[932px] sm:max-h-[95vh] sm:rounded-[40px] sm:border-[12px] sm:border-gray-900 sm:shadow-2xl
+      ">
         
         {/* Antigravity Header */}
         <div className="sticky top-0 z-20 liquid-glass-dark px-6 py-5 flex items-center border-b border-white/10 rounded-b-[32px]">
