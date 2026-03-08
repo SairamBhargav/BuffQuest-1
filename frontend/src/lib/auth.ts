@@ -1,5 +1,15 @@
 import { betterAuth } from "better-auth";
+import { APIError } from "better-auth/api";
 import { Pool } from "pg";
+import nodemailer from "nodemailer";
+
+const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+    },
+});
 
 export const auth = betterAuth({
     baseURL: process.env.BETTER_AUTH_URL,
@@ -9,5 +19,37 @@ export const auth = betterAuth({
     }),
     emailAndPassword: {
         enabled: true,
+        requireEmailVerification: true,
+    },
+    emailVerification: {
+        sendOnSignUp: true,
+        autoSignInAfterVerification: true,
+        sendVerificationEmail: async ({ user, url }, request) => {
+            try {
+                await transporter.sendMail({
+                    from: `"BuffQuest" <${process.env.EMAIL_USER}>`,
+                    to: user.email,
+                    subject: "Verify your email address for BuffQuest",
+                    html: `<p>Please click the link below to verify your email address:</p><p><a href="${url}">Verify Email</a></p>`,
+                });
+            } catch (error: any) {
+                console.error("Failed to send verification email via Nodemailer:", error.message, error);
+                throw new APIError("BAD_REQUEST", { message: "Failed to send verification email: " + (error?.message || "Unknown error") });
+            }
+        },
+    },
+    databaseHooks: {
+        user: {
+            create: {
+                before: async (user) => {
+                    if (!user.email.endsWith("@colorado.edu")) {
+                        throw new APIError("BAD_REQUEST", {
+                            message: "Only @colorado.edu emails are allowed to register.",
+                        });
+                    }
+                    return { data: user };
+                },
+            },
+        },
     },
 });
