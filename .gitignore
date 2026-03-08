@@ -1,3 +1,8 @@
-*venv/
-.env
-supabase/.temp/*
+node_modules/
+frontend/node_modules/
+.env*
+.next/
+frontend/.next/
+.venv/
+venv/
+__pycache__/
