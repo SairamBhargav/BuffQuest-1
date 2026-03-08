@@ -19,6 +19,7 @@ const transporter = globalForAuth.transporter ?? nodemailer.createTransport({
 const pool = globalForAuth.pool ?? new Pool({
     connectionString: process.env.DATABASE_URL,
     max: 1, // important for serverless
+    ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : undefined,
 });
 
 if (process.env.NODE_ENV !== "production") {
