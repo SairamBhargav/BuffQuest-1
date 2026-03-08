@@ -49,6 +49,22 @@ export default function MapMockup() {
   };
 
   const lightPreset = getLightPreset();
+  const mapRef = React.useRef<any>(null);
+
+  const handleMarkerClick = (quest: Quest) => {
+    setSelectedQuest(quest);
+    
+    // Smoothly fly to the marker location
+    if (mapRef.current) {
+      mapRef.current.flyTo({
+        center: [quest.longitude, quest.latitude],
+        duration: 1200,
+        zoom: 16.5,
+        essential: true,
+        padding: { bottom: 100, top: 0, left: 0, right: 0 } // Offset slightly for the popup
+      });
+    }
+  };
 
   useEffect(() => {
     setIsClient(true);
@@ -108,7 +124,7 @@ export default function MapMockup() {
           >
             <span className="tracking-tight">{user.credits} <span className={`text-[10px] sm:text-xs ${chipLabel} font-bold uppercase tracking-widest pl-0.5 sm:pl-1`}>Credits</span></span>
           </motion.div>
-
+ 
           {/* Notoriety Chip */}
           <motion.div 
             whileHover={{ scale: 1.05 }}
@@ -174,13 +190,14 @@ export default function MapMockup() {
 
       {/* ─── Mapbox ─── */}
       <Map
+        ref={mapRef}
         reuseMaps
         mapboxAccessToken={isTokenMissing ? "" : token}
         initialViewState={{
           longitude: CU_BOULDER_COORDS.longitude,
           latitude: CU_BOULDER_COORDS.latitude,
-          zoom: 15,
-          pitch: 60,
+          zoom: 15.2,
+          pitch: 62,
           bearing: -17.6,
         }}
         maxBounds={CU_BOULDER_BOUNDS}
@@ -211,7 +228,7 @@ export default function MapMockup() {
             anchor="bottom"
             onClick={(e) => {
               e.originalEvent.stopPropagation();
-              setSelectedQuest(quest);
+              handleMarkerClick(quest);
             }}
           >
             <div 
