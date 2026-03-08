@@ -1,6 +1,5 @@
 """Pydantic schemas for the ``attendance_submissions`` table."""
 
-import uuid
 from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -22,7 +21,7 @@ class AttendanceSubmissionRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
-    user_id: uuid.UUID
+    user_id: str
     schedule_image_url: str
     class_photo_url: str
     class_name: str

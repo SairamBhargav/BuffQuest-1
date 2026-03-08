@@ -1,6 +1,5 @@
 """Quest endpoints - ``/quests/…``."""
 
-import uuid
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -9,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.security import get_current_user
+from app.models.building_zone import BuildingZone
 from app.models.quest import ModerationStatus, Quest, QuestStatus
 from app.schemas.quest import QuestCreate, QuestRead, QuestUpdate
 from app.schemas.reward import RewardResult
@@ -20,7 +20,8 @@ router = APIRouter(prefix="/quests", tags=["quests"])
 # ------------------------------------------------------------------
 # GET /quests
 # ------------------------------------------------------------------
-@router.get("/", response_model=list[QuestRead])
+@router.get("", response_model=list[QuestRead])
+@router.get("/", response_model=list[QuestRead], include_in_schema=False)
 async def list_quests(
     building_zone_id: int | None = Query(None),
     status_filter: str | None = Query(None, alias="status"),
@@ -29,14 +30,26 @@ async def list_quests(
     db: AsyncSession = Depends(get_db),
 ):
     """List quests, optionally filtered by building zone or status."""
-    stmt = select(Quest)
+    stmt = (
+        select(Quest, BuildingZone.name.label("building_name"), BuildingZone.latitude, BuildingZone.longitude)
+        .join(BuildingZone, Quest.building_zone_id == BuildingZone.id)
+    )
     if building_zone_id is not None:
         stmt = stmt.where(Quest.building_zone_id == building_zone_id)
     if status_filter is not None:
         stmt = stmt.where(Quest.status == status_filter)
     stmt = stmt.order_by(Quest.created_at.desc()).offset(offset).limit(limit)
     result = await db.execute(stmt)
-    return result.scalars().all()
+    
+    quests_with_zones = []
+    for row in result.all():
+        quest = row.Quest
+        quest.building_name = row.building_name
+        quest.latitude = row.latitude
+        quest.longitude = row.longitude
+        quests_with_zones.append(quest)
+        
+    return quests_with_zones
 
 
 # ------------------------------------------------------------------
@@ -48,20 +61,31 @@ async def get_quest(
     db: AsyncSession = Depends(get_db),
 ):
     """Get a single quest by ID."""
-    result = await db.execute(select(Quest).where(Quest.id == quest_id))
-    quest = result.scalar_one_or_none()
-    if quest is None:
+    stmt = (
+        select(Quest, BuildingZone.name.label("building_name"), BuildingZone.latitude, BuildingZone.longitude)
+        .join(BuildingZone, Quest.building_zone_id == BuildingZone.id)
+        .where(Quest.id == quest_id)
+    )
+    result = await db.execute(stmt)
+    row = result.first()
+    if row is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Quest not found")
+        
+    quest = row.Quest
+    quest.building_name = row.building_name
+    quest.latitude = row.latitude
+    quest.longitude = row.longitude
     return quest
 
 
 # ------------------------------------------------------------------
 # POST /quests
 # ------------------------------------------------------------------
-@router.post("/", response_model=QuestRead, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=QuestRead, status_code=status.HTTP_201_CREATED)
+@router.post("/", response_model=QuestRead, status_code=status.HTTP_201_CREATED, include_in_schema=False)
 async def create_quest(
     payload: QuestCreate,
-    user_id: uuid.UUID = Depends(get_current_user),
+    user_id: str = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Create a new quest (deducts cost_credits from creator)."""
@@ -96,7 +120,7 @@ async def create_quest(
 async def update_quest(
     quest_id: int,
     payload: QuestUpdate,
-    user_id: uuid.UUID = Depends(get_current_user),
+    user_id: str = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Update a quest (only allowed while status is ``open``, creator only)."""
@@ -124,7 +148,7 @@ async def update_quest(
 @router.post("/{quest_id}/cancel", response_model=QuestRead)
 async def cancel_quest(
     quest_id: int,
-    user_id: uuid.UUID = Depends(get_current_user),
+    user_id: str = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Cancel a quest (creator only, must be ``open`` or ``claimed``). Refunds credits."""
@@ -153,7 +177,7 @@ async def cancel_quest(
 @router.post("/{quest_id}/complete", response_model=QuestRead)
 async def complete_quest(
     quest_id: int,
-    user_id: uuid.UUID = Depends(get_current_user),
+    user_id: str = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Mark a quest as completed (hunter only, must be ``claimed``)."""
@@ -179,7 +203,7 @@ async def complete_quest(
 @router.post("/{quest_id}/verify", response_model=QuestRead)
 async def verify_quest(
     quest_id: int,
-    user_id: uuid.UUID = Depends(get_current_user),
+    user_id: str = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Verify a completed quest (creator only, must be ``completed``)."""
@@ -205,7 +229,7 @@ async def verify_quest(
 @router.post("/{quest_id}/reward", response_model=RewardResult)
 async def reward_quest(
     quest_id: int,
-    user_id: uuid.UUID,  # TODO: replace with Depends(get_current_user)
+    user_id: str = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Issue rewards for a verified quest (creator only).

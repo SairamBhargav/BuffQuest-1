@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useToast } from "@/context/ToastContext";
+import { useQuests } from "@/context/QuestContext";
 
 interface AttendanceDrawerProps {
   isOpen: boolean;
@@ -13,9 +14,19 @@ type VerificationStage = "idle" | "verifying" | "success" | "failed";
 
 export default function AttendanceDrawer({ isOpen, onClose }: AttendanceDrawerProps) {
   const { addToast } = useToast();
+  const { attendanceCheckIn, buildingZones } = useQuests();
   const [hasSchedule, setHasSchedule] = useState(false);
   const [scheduleName, setScheduleName] = useState("");
   const [stage, setStage] = useState<VerificationStage>("idle");
+  const [selectedBuildingId, setSelectedBuildingId] = useState<number | "">("");
+  const [className, setClassName] = useState("");
+
+  // Set default building
+  React.useEffect(() => {
+    if (buildingZones.length > 0 && selectedBuildingId === "") {
+      setSelectedBuildingId(buildingZones[0].id);
+    }
+  }, [buildingZones, selectedBuildingId]);
 
   const handleScheduleUpload = () => {
     // Simulate a schedule upload
@@ -25,20 +36,27 @@ export default function AttendanceDrawer({ isOpen, onClose }: AttendanceDrawerPr
   };
 
   const handleCheckIn = async () => {
+    if (selectedBuildingId === "" || !className.trim()) {
+      addToast("Please select a building and enter class name", "error");
+      return;
+    }
+    
     setStage("verifying");
 
-    // Simulate location + time verification
-    await new Promise((r) => setTimeout(r, 2500));
+    const result = await attendanceCheckIn({
+      buildingZoneId: Number(selectedBuildingId),
+      className: className,
+      scheduleImageUrl: "https://example.com/mock-schedule.jpg",
+      classPhotoUrl: "https://example.com/mock-class-photo.jpg",
+      scheduledStartTime: new Date().toISOString(),
+    });
 
-    // Randomly succeed for demo purposes (80% success rate)
-    const success = Math.random() > 0.2;
-
-    if (success) {
+    if (result.success) {
       setStage("success");
       addToast("+5 daily credits earned! 🎓", "reward");
     } else {
       setStage("failed");
-      addToast("Verification failed. Make sure you're in class.", "error");
+      addToast(result.error || "Verification failed.", "error");
     }
 
     // Reset after delay
@@ -134,11 +152,38 @@ export default function AttendanceDrawer({ isOpen, onClose }: AttendanceDrawerPr
                     <p className="text-sm text-slate-400">
                       Take a photo from your class to verify attendance and earn <span className="text-yellow-400 font-black">+5 credits</span> daily.
                     </p>
+                    
+                    <div className="space-y-3">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-black tracking-widest text-slate-500 uppercase ml-1">Class Name</label>
+                        <input
+                          type="text"
+                          value={className}
+                          onChange={(e) => setClassName(e.target.value)}
+                          placeholder="e.g. CS 101"
+                          className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2 text-white placeholder:text-white/30 focus:outline-none focus:border-yellow-400/50 transition-all text-sm"
+                        />
+                      </div>
+                      
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-black tracking-widest text-slate-500 uppercase ml-1">Current Building</label>
+                        <select
+                          value={selectedBuildingId}
+                          onChange={(e) => setSelectedBuildingId(Number(e.target.value))}
+                          className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2 text-white focus:outline-none focus:border-yellow-400/50 transition-all text-sm appearance-none cursor-pointer"
+                        >
+                          {buildingZones.map((zone) => (
+                            <option key={zone.id} value={zone.id} className="bg-slate-900">{zone.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
                     <motion.button
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.95 }}
                       onClick={handleCheckIn}
-                      disabled={!hasSchedule}
+                      disabled={!hasSchedule || !className.trim()}
                       className="w-full squishy-btn text-yellow-900 font-black py-4 rounded-[28px] uppercase tracking-widest text-base border-2 border-white/60 shadow-xl disabled:opacity-40 disabled:pointer-events-none"
                     >
                       📸 Check In Now

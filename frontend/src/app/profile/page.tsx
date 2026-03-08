@@ -40,6 +40,22 @@ export default function ProfilePage() {
   const [chatRole, setChatRole] = useState<"creator" | "hunter">("hunter");
   const [activeTab, setActiveTab] = useState<"active" | "posted">("active");
 
+  if (!user) {
+    return (
+      <main className="w-full min-h-[100dvh] bg-[#060a14] text-slate-100 flex flex-col items-center justify-center">
+        <div className="bg-white/[0.04] p-8 rounded-[32px] border border-white/10 text-center max-w-sm">
+          <h1 className="text-2xl font-black mb-3 text-white">Sign In Required</h1>
+          <p className="text-slate-400 text-sm mb-6">You need to sign in to view your BuffQuest profile and stats.</p>
+          <Link href="/">
+            <button className="squishy-btn text-yellow-900 bg-yellow-400 w-full py-4 rounded-[20px] font-black uppercase tracking-widest text-sm shadow-xl">
+              Return Home
+            </button>
+          </Link>
+        </div>
+      </main>
+    );
+  }
+
   const openChat = (quest: Quest) => {
     setActiveChatQuest(quest);
     setChatRole(quest.creatorId === user.id ? "creator" : "hunter");

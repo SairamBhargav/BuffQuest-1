@@ -1,11 +1,9 @@
 """SQLAlchemy model for the ``reward_logs`` table."""
 
 import enum
-import uuid
 from datetime import datetime
 
-from sqlalchemy import BigInteger, DateTime, Enum, ForeignKey, Integer, func
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import BigInteger, DateTime, Enum, ForeignKey, Integer, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -26,13 +24,12 @@ class RewardLog(Base):
     """
 
     __tablename__ = "reward_logs"
-    __table_args__ = {"schema": "public"}
 
     # ── columns ──────────────────────────────────────────────
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    user_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
-        ForeignKey("public.profiles.id", ondelete="CASCADE"),
+    user_id: Mapped[str] = mapped_column(
+        String,
+        ForeignKey("user.id", ondelete="CASCADE"),
         nullable=False,
     )
     source_type: Mapped[RewardSourceType] = mapped_column(

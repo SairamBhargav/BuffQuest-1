@@ -1,6 +1,5 @@
 """Quest claim endpoint - ``/quests/{quest_id}/claim``."""
 
-import uuid
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -21,7 +20,7 @@ router = APIRouter(prefix="/quests", tags=["claims"])
 @router.post("/{quest_id}/claim", response_model=QuestRead)
 async def claim_quest(
     quest_id: int,
-    user_id: uuid.UUID = Depends(get_current_user),
+    user_id: str = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Atomically claim a quest.

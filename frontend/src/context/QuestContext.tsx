@@ -1,6 +1,8 @@
 "use client";
 
-import React, { createContext, useContext, useState, useCallback, ReactNode } from "react";
+import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect } from "react";
+import axios from "axios";
+import { authClient } from "@/lib/auth-client";
 
 export type QuestStatus = "open" | "claimed" | "completed" | "verified" | "cancelled";
 
@@ -12,7 +14,8 @@ export interface Quest {
   longitude: number;
   latitude: number;
   status: QuestStatus;
-  building: string;
+  buildingName: string;
+  buildingZoneId: number;
   creatorId: string;
   hunterId?: string;
   createdAt: string;
@@ -27,6 +30,14 @@ export interface UserProfile {
   isVerifiedStudent: boolean;
 }
 
+export interface BuildingZone {
+  id: number;
+  name: string;
+  latitude: number;
+  longitude: number;
+  radius_meters: number;
+}
+
 export interface LeaderboardEntry {
   rank: number;
   name: string;
@@ -35,181 +46,190 @@ export interface LeaderboardEntry {
   avatar: string;
 }
 
-const MOCK_USER: UserProfile = {
-  id: "user-1",
-  name: "Ralphie",
-  email: "ralphie@colorado.edu",
-  credits: 250,
-  notoriety: 12,
-  isVerifiedStudent: true,
-};
+const api = axios.create({
+  baseURL: "http://localhost:8000/api",
+  withCredentials: true,
+  // Ensure we don't accidentally append a trailing slash if we use an empty path
+  // or relative path
+});
 
-const MOCK_LEADERBOARD: LeaderboardEntry[] = [
-  { rank: 1, name: "Chip", notoriety: 89, isYou: false, avatar: "👑" },
-  { rank: 2, name: "Ralphie", notoriety: 12, isYou: true, avatar: "🧑‍🎓" },
-  { rank: 3, name: "Anonymous", notoriety: 8, isYou: false, avatar: "🥷" },
-  { rank: 4, name: "Alex", notoriety: 6, isYou: false, avatar: "🎒" },
-  { rank: 5, name: "Jordan", notoriety: 4, isYou: false, avatar: "📚" },
-];
-
-const INITIAL_QUESTS: Quest[] = [
-  {
-    id: "q1",
-    title: "Coffee Run to Norlin",
-    description: "Need a large iced coffee from Starbucks delivered to the second floor study area.",
-    bounty: 15,
-    longitude: -105.273,
-    latitude: 40.0085,
-    status: "open",
-    building: "Norlin Library",
-    creatorId: "user-2",
-    createdAt: new Date(Date.now() - 3600000).toISOString(),
-  },
-  {
-    id: "q2",
-    title: "Need Calc 2 Notes",
-    description: "Missed today's lecture on series convergence. Need a photo of the notes from MATH 2300.",
-    bounty: 25,
-    longitude: -105.267,
-    latitude: 40.006,
-    status: "open",
-    building: "Duane Physics",
-    creatorId: "user-3",
-    createdAt: new Date(Date.now() - 7200000).toISOString(),
-  },
-  {
-    id: "q3",
-    title: "Return Library Book",
-    description: "Need someone to return 'Intro to Algorithms' to the Norlin front desk before 5pm.",
-    bounty: 10,
-    longitude: -105.272,
-    latitude: 40.005,
-    status: "open",
-    building: "UMC",
-    creatorId: "user-4",
-    createdAt: new Date(Date.now() - 1800000).toISOString(),
-  },
-  {
-    id: "q4",
-    title: "Study Partner for Physics",
-    description: "Looking for someone to study PHYS 1120 exam material at C4C for about 2 hours.",
-    bounty: 20,
-    longitude: -105.2635,
-    latitude: 40.0043,
-    status: "open",
-    building: "C4C",
-    creatorId: "user-5",
-    createdAt: new Date(Date.now() - 900000).toISOString(),
-  },
-];
+api.interceptors.request.use(async (config) => {
+  const session = await authClient.getSession();
+  if (session?.data?.session?.token) {
+    config.headers.Authorization = `Bearer ${session.data.session.token}`;
+  }
+  return config;
+});
 
 interface QuestContextType {
   quests: Quest[];
-  user: UserProfile;
+  user: UserProfile | null;
+  buildingZones: BuildingZone[];
   leaderboard: LeaderboardEntry[];
-  addQuest: (quest: Omit<Quest, "id" | "status" | "creatorId" | "createdAt">) => { success: boolean; error?: string };
+  addQuest: (quest: { title: string; description: string; bounty: number; buildingZoneId: number }) => Promise<{ success: boolean; error?: string }>;
   claimQuest: (id: string) => void;
   completeQuest: (id: string) => void;
   verifyQuest: (id: string) => void;
   cancelQuest: (id: string) => void;
   getActiveQuests: () => Quest[];
   getMyQuests: () => Quest[];
+  fetchBuildingZones: () => Promise<void>;
+  attendanceCheckIn: (data: { buildingZoneId: number; className: string; scheduleImageUrl: string; classPhotoUrl: string; scheduledStartTime: string }) => Promise<{ success: boolean; error?: string }>;
+  loading: boolean;
 }
 
 const QuestContext = createContext<QuestContextType | undefined>(undefined);
 
 export function QuestProvider({ children }: { children: ReactNode }) {
-  const [quests, setQuests] = useState<Quest[]>(INITIAL_QUESTS);
-  const [user, setUser] = useState<UserProfile>(MOCK_USER);
-  const [leaderboard] = useState<LeaderboardEntry[]>(MOCK_LEADERBOARD);
+  const [quests, setQuests] = useState<Quest[]>([]);
+  const [user, setUser] = useState<UserProfile | null>(null);
+  const [buildingZones, setBuildingZones] = useState<BuildingZone[]>([]);
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const addQuest = useCallback((questData: Omit<Quest, "id" | "status" | "creatorId" | "createdAt">) => {
-    if (user.credits < questData.bounty) {
-      return { success: false, error: "Not enough credits to post this quest." };
+  const fetchBuildingZones = useCallback(async () => {
+    console.log("DEBUG: fetchBuildingZones started");
+    try {
+      const res = await api.get<BuildingZone[]>("/building-zones");
+      console.log("DEBUG: fetchBuildingZones success", res.data);
+      setBuildingZones(res.data || []);
+    } catch (e) {
+      console.error("DEBUG: Failed to fetch building zones:", e);
     }
-
-    const newQuest: Quest = {
-      ...questData,
-      id: "q-" + Date.now().toString(36),
-      status: "open",
-      creatorId: user.id,
-      createdAt: new Date().toISOString(),
-    };
-
-    setQuests((prev) => [newQuest, ...prev]);
-    setUser((prev) => ({ ...prev, credits: prev.credits - questData.bounty }));
-    return { success: true };
-  }, [user.credits, user.id]);
-
-  const claimQuest = useCallback((id: string) => {
-    setQuests((prev) =>
-      prev.map((q) =>
-        q.id === id && q.status === "open"
-          ? { ...q, status: "claimed" as QuestStatus, hunterId: user.id }
-          : q
-      )
-    );
-  }, [user.id]);
-
-  const completeQuest = useCallback((id: string) => {
-    setQuests((prev) =>
-      prev.map((q) =>
-        q.id === id && q.status === "claimed" ? { ...q, status: "completed" as QuestStatus } : q
-      )
-    );
   }, []);
 
-  const verifyQuest = useCallback((id: string) => {
-    setQuests((prev) => {
-      const quest = prev.find((q) => q.id === id);
-      if (!quest || quest.status !== "completed") return prev;
-      return prev.map((q) =>
-        q.id === id ? { ...q, status: "verified" as QuestStatus } : q
-      );
-    });
-    // Award credits and notoriety to the hunter
-    const quest = quests.find((q) => q.id === id);
-    if (quest) {
-      setUser((prev) => ({
-        ...prev,
-        credits: prev.credits + quest.bounty,
-        notoriety: prev.notoriety + 1,
-      }));
-    }
-  }, [quests]);
+  const fetchState = useCallback(async () => {
+    console.log("DEBUG: fetchState started");
+    try {
+      await fetchBuildingZones();
+      console.log("DEBUG: fetchBuildingZones done");
+      const questsRes = await api.get<Quest[]>("/quests").catch((e) => {
+        console.error("DEBUG: quests fetch failed", e);
+        return { data: [] };
+      });
+      console.log("DEBUG: questsRes", questsRes.data);
+      setQuests(questsRes.data || []);
 
-  const cancelQuest = useCallback((id: string) => {
-    setQuests((prev) => {
-      const quest = prev.find((q) => q.id === id);
-      if (!quest || (quest.status !== "open" && quest.status !== "claimed")) return prev;
-      return prev.map((q) =>
-        q.id === id ? { ...q, status: "cancelled" as QuestStatus } : q
-      );
-    });
-    // Refund credits if creator cancels their own quest
-    const quest = quests.find((q) => q.id === id);
-    if (quest && quest.creatorId === user.id) {
-      setUser((prev) => ({ ...prev, credits: prev.credits + quest.bounty }));
+      console.log("DEBUG: getting session");
+      const session = await authClient.getSession();
+      console.log("DEBUG: session", session);
+      if (session?.data?.session?.token) {
+        const userRes = await api.get<UserProfile>("/users/me").catch((e) => {
+          console.error("DEBUG: user/me fetch failed", e);
+          return { data: null };
+        });
+        console.log("DEBUG: userRes", userRes.data);
+        setUser(userRes.data || null);
+      } else {
+        setUser(null);
+      }
+    } catch (e) {
+      console.error("DEBUG: Failed to fetch initial state:", e);
+    } finally {
+      console.log("DEBUG: setting loading false");
+      setLoading(false);
     }
-  }, [quests, user.id]);
+  }, [fetchBuildingZones]);
+
+  useEffect(() => {
+    fetchState();
+  }, [fetchState]);
+
+
+  const addQuest = useCallback(async (questData: { title: string; description: string; bounty: number; buildingZoneId: number }) => {
+    try {
+       const res = await api.post<Quest>("/quests", {
+         title: questData.title,
+         description: questData.description,
+         reward_credits: questData.bounty,
+         cost_credits: questData.bounty,
+         reward_notoriety: 1,
+         building_zone_id: questData.buildingZoneId,
+       });
+       setQuests((prev) => [res.data, ...prev]);
+       if (user) {
+         setUser((prev) => prev ? { ...prev, credits: prev.credits - questData.bounty } : prev);
+       }
+       return { success: true };
+    } catch (error: any) {
+       return { success: false, error: error.response?.data?.detail || "Failed to create quest" };
+    }
+  }, [user]);
+
+  const claimQuest = useCallback(async (id: string) => {
+    try {
+      const res = await api.post<Quest>(`/claims/quest/${id}`);
+      setQuests((prev) => prev.map((q) => (q.id === id ? res.data : q)));
+    } catch (error) {
+       console.error("Failed to claim quest", error);
+    }
+  }, []);
+
+  const completeQuest = useCallback(async (id: string) => {
+    try {
+      const res = await api.post<Quest>(`/quests/${id}/complete`);
+      setQuests((prev) => prev.map((q) => (q.id === id ? res.data : q)));
+    } catch (error) {
+       console.error("Failed to complete quest", error);
+    }
+  }, []);
+
+  const verifyQuest = useCallback(async (id: string) => {
+    try {
+      const res = await api.post<Quest>(`/quests/${id}/verify`);
+      setQuests((prev) => prev.map((q) => (q.id === id ? res.data : q)));
+      fetchState(); // refresh user stats
+    } catch (error) {
+       console.error("Failed to verify quest", error);
+    }
+  }, [fetchState]);
+
+  const cancelQuest = useCallback(async (id: string) => {
+    try {
+      const res = await api.post<Quest>(`/quests/${id}/cancel`);
+      setQuests((prev) => prev.map((q) => (q.id === id ? res.data : q)));
+      fetchState(); // refund credits
+    } catch (error) {
+      console.error("Failed to cancel quest", error);
+    }
+  }, [fetchState]);
+
+  const attendanceCheckIn = useCallback(async (data: { buildingZoneId: number; className: string; scheduleImageUrl: string; classPhotoUrl: string; scheduledStartTime: string }) => {
+    try {
+      await api.post("/attendance/check-in", {
+        building_zone_id: data.buildingZoneId,
+        class_name: data.className,
+        schedule_image_url: data.scheduleImageUrl,
+        class_photo_url: data.classPhotoUrl,
+        scheduled_start_time: data.scheduledStartTime,
+      });
+      fetchState(); // Refresh user stats (credits)
+      return { success: true };
+    } catch (error: any) {
+      return { success: false, error: error.response?.data?.detail || "Failed to submit attendance" };
+    }
+  }, [fetchState]);
 
   const getActiveQuests = useCallback(() => {
+    if (!user) return [];
     return quests.filter(
       (q) =>
         (q.status === "claimed" || q.status === "completed") &&
         (q.hunterId === user.id || q.creatorId === user.id)
     );
-  }, [quests, user.id]);
+  }, [quests, user]);
 
   const getMyQuests = useCallback(() => {
+    if (!user) return [];
     return quests.filter((q) => q.creatorId === user.id && q.status !== "cancelled" && q.status !== "verified");
-  }, [quests, user.id]);
+  }, [quests, user]);
 
   return (
     <QuestContext.Provider
       value={{
         quests,
         user,
+        buildingZones,
         leaderboard,
         addQuest,
         claimQuest,
@@ -218,6 +238,9 @@ export function QuestProvider({ children }: { children: ReactNode }) {
         cancelQuest,
         getActiveQuests,
         getMyQuests,
+        fetchBuildingZones,
+        attendanceCheckIn,
+        loading,
       }}
     >
       {children}

@@ -1,6 +1,5 @@
 """Pydantic schemas for the ``profiles`` table."""
 
-import uuid
 from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -11,22 +10,23 @@ class ProfileRead(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
-    id: uuid.UUID
+    id: str
+    id: str
     email: str | None = None
-    display_name: str
+    name: str
     credits: int
     notoriety: int
     is_verified_student: bool
-    profile_image_url: str | None = None
-    created_at: datetime
-    updated_at: datetime
+    image: str | None = None
+    createdAt: datetime
+    updatedAt: datetime
 
 
 class ProfileUpdate(BaseModel):
     """Fields a user may update on their own profile."""
 
-    display_name: str | None = Field(None, min_length=1, max_length=100)
-    profile_image_url: str | None = None
+    name: str | None = Field(None, min_length=1, max_length=100)
+    image: str | None = None
 
 
 class ProfileStats(BaseModel):

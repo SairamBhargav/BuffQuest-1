@@ -1,34 +1,26 @@
-"""SQLAlchemy model for the ``profiles`` table."""
+"""SQLAlchemy model for the ``user`` table (better-auth users)."""
 
-import uuid
 from datetime import datetime
 
 from sqlalchemy import Boolean, DateTime, Integer, String, Text, func
-from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
 
 
 class Profile(Base):
-    """Maps to ``public.profiles``.
+    """Maps to ``public.user`` created by better-auth."""
 
-    The primary key is the Supabase ``auth.users.id`` UUID, inserted
-    automatically by the ``handle_new_user`` trigger defined in the
-    SQL migration.
-    """
-
-    __tablename__ = "profiles"
-    __table_args__ = {"schema": "public"}
+    __tablename__ = "user"
 
     # ── columns ──────────────────────────────────────────────
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
-    email: Mapped[str | None] = mapped_column(
-        Text, unique=True, index=True
-    )
-    display_name: Mapped[str] = mapped_column(Text, nullable=False)
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    email: Mapped[str] = mapped_column(Text, unique=True, index=True)
+    
+    # In better-auth, the column is typically named `name`
+    name: Mapped[str] = mapped_column(Text, nullable=False)
+    
+    # Custom fields we added for BuffQuest
     credits: Mapped[int] = mapped_column(
         Integer, nullable=False, default=0
     )
@@ -38,23 +30,45 @@ class Profile(Base):
     is_verified_student: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False
     )
-    profile_image_url: Mapped[str | None] = mapped_column(Text)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=func.now()
+    
+    # In better-auth, the column is typically named `image`
+    image: Mapped[str | None] = mapped_column(Text)
+    
+    # In better-auth these are named createdAt and updatedAt (quoted case-sensitive)
+    createdAt: Mapped[datetime] = mapped_column(
+        "createdAt", DateTime(timezone=True), nullable=False, server_default=func.now()
     )
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=func.now()
+    updatedAt: Mapped[datetime] = mapped_column(
+        "updatedAt", DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    
+    emailVerified: Mapped[bool] = mapped_column(
+        "emailVerified", Boolean, nullable=False, default=False
     )
 
     # ── relationships ────────────────────────────────────────
     created_quests = relationship(
-        "Quest", back_populates="creator", foreign_keys="Quest.creator_id"
+        "Quest",
+        back_populates="creator",
+        foreign_keys="Quest.creator_id",
     )
     hunted_quests = relationship(
-        "Quest", back_populates="hunter", foreign_keys="Quest.hunter_id"
+        "Quest",
+        back_populates="hunter",
+        foreign_keys="Quest.hunter_id",
     )
-    messages = relationship("Message", back_populates="sender")
+    messages = relationship(
+        "Message",
+        back_populates="sender",
+        foreign_keys="Message.sender_id",
+    )
     attendance_submissions = relationship(
-        "AttendanceSubmission", back_populates="user"
+        "AttendanceSubmission",
+        back_populates="user",
+        foreign_keys="AttendanceSubmission.user_id",
     )
-    reward_logs = relationship("RewardLog", back_populates="user")
+    reward_logs = relationship(
+        "RewardLog",
+        back_populates="user",
+        foreign_keys="RewardLog.user_id",
+    )

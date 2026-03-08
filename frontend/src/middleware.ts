@@ -3,7 +3,7 @@ import { type NextRequest, NextResponse } from 'next/server'
 export async function middleware(request: NextRequest) {
   // Check the session securely by hitting the better-auth API via fetch
   // We use fetch instead of importing `auth` to prevent the Edge runtime from loading Node.js native libraries (like pg, crypto).
-  const sessionResponse = await fetch(`${request.nextUrl.origin}/api/auth/get-session`, {
+  const sessionResponse = await fetch(`${request.nextUrl.origin}/api/auth/session`, {
     headers: {
       cookie: request.headers.get("cookie") || "",
     },
@@ -11,7 +11,7 @@ export async function middleware(request: NextRequest) {
 
   const session = sessionResponse.ok ? await sessionResponse.json() : null;
 
-  const isProtectedRoute = request.nextUrl.pathname.startsWith('/map') ||
+  const isProtectedRoute = request.nextUrl.pathname === '/' ||
     request.nextUrl.pathname.startsWith('/quests') ||
     request.nextUrl.pathname.startsWith('/attendance') ||
     request.nextUrl.pathname.startsWith('/profile') ||
@@ -31,7 +31,7 @@ export async function middleware(request: NextRequest) {
 
   if (isAuthRoute && session) {
     const url = request.nextUrl.clone()
-    url.pathname = '/map'
+    url.pathname = '/'
     return NextResponse.redirect(url)
   }
 

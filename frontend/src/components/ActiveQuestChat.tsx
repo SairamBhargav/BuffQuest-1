@@ -1,15 +1,18 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useQuests, Quest } from "@/context/QuestContext";
 import { useToast } from "@/context/ToastContext";
+import axios from "axios";
+import { authClient } from "@/lib/auth-client";
 
 interface Message {
   id: string;
-  sender: "you" | "other";
-  text: string;
-  timestamp: string;
+  sender_id: string;
+  quest_id: string;
+  content: string;
+  created_at: string;
 }
 
 interface ActiveQuestChatProps {
@@ -20,26 +23,37 @@ interface ActiveQuestChatProps {
 }
 
 export default function ActiveQuestChat({ isOpen, onClose, quest, role }: ActiveQuestChatProps) {
-  const { completeQuest, verifyQuest, cancelQuest } = useQuests();
+  const { completeQuest, verifyQuest, cancelQuest, user } = useQuests();
   const { addToast } = useToast();
 
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: "m1",
-      sender: "other",
-      text: "Hey! I can help with this. Are you on campus?",
-      timestamp: "10:42 AM"
-    },
-    {
-      id: "m2",
-      sender: "you",
-      text: "Yeah I'm near the UMC right now!",
-      timestamp: "10:45 AM"
-    }
-  ]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState("");
   const [showReward, setShowReward] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const fetchMessages = useCallback(async () => {
+    if (!quest || !isOpen) return;
+    try {
+      const session = await authClient.getSession();
+      const token = session?.data?.session?.token;
+      if (!token) return;
+
+      const res = await axios.get<Message[]>(`http://localhost:8000/api/quests/${quest.id}/messages`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setMessages(res.data);
+    } catch (e) {
+      console.error("Failed to fetch messages", e);
+    }
+  }, [quest, isOpen]);
+
+  useEffect(() => {
+    if (isOpen) {
+      fetchMessages();
+      const interval = setInterval(fetchMessages, 3000);
+      return () => clearInterval(interval);
+    }
+  }, [isOpen, fetchMessages]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -51,29 +65,28 @@ export default function ActiveQuestChat({ isOpen, onClose, quest, role }: Active
     }
   }, [messages, isOpen]);
 
-  const handleSend = (e: React.FormEvent) => {
+  const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputText.trim() || !quest) return;
 
-    const newMessage: Message = {
-      id: Date.now().toString(),
-      sender: "you",
-      text: inputText,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    };
-
-    setMessages([...messages, newMessage]);
+    const currentText = inputText;
     setInputText("");
     
-    // Auto-reply mock
-    setTimeout(() => {
-      setMessages(prev => [...prev, {
-        id: (Date.now() + 1).toString(),
-        sender: "other",
-        text: "Got it, I'll be there in 5 minutes! 🏃‍♂️💨",
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      }]);
-    }, 1500);
+    try {
+      const session = await authClient.getSession();
+      const token = session?.data?.session?.token;
+      if (!token) return;
+
+      await axios.post(
+        `http://localhost:8000/api/quests/${quest.id}/messages`,
+        { content: currentText },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      fetchMessages();
+    } catch (e) {
+      console.error("Failed to send message", e);
+      addToast("Failed to send message", "error");
+    }
   };
 
   const handleComplete = () => {
@@ -153,10 +166,10 @@ export default function ActiveQuestChat({ isOpen, onClose, quest, role }: Active
               </button>
             </div>
 
-            {/* Message Feed */}
             <div className="flex-1 overflow-y-auto p-6 space-y-4">
               {messages.map((msg) => {
-                const isYou = msg.sender === "you";
+                const isYou = msg.sender_id === user?.id;
+                const timeStr = new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                 return (
                   <motion.div
                     initial={{ opacity: 0, y: 10, scale: 0.95 }}
@@ -171,10 +184,10 @@ export default function ActiveQuestChat({ isOpen, onClose, quest, role }: Active
                           : "bg-gradient-to-br from-pink-500/90 to-pink-600/90 text-white rounded-tl-sm font-medium"
                       }`}
                     >
-                      {msg.text}
+                      {msg.content}
                     </div>
                     <span className="text-[10px] uppercase font-black tracking-widest text-slate-500 mt-1 px-1">
-                      {msg.timestamp}
+                      {timeStr}
                     </span>
                   </motion.div>
                 );

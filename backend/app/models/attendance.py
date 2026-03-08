@@ -1,11 +1,9 @@
 """SQLAlchemy model for the ``attendance_submissions`` table."""
 
 import enum
-import uuid
 from datetime import datetime
 
-from sqlalchemy import BigInteger, Boolean, DateTime, Enum, ForeignKey, Text, func
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import BigInteger, Boolean, DateTime, Enum, ForeignKey, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -18,16 +16,15 @@ class AttendanceVerificationStatus(str, enum.Enum):
 
 
 class AttendanceSubmission(Base):
-    """Maps to ``public.attendance_submissions``."""
+    """Maps to ``attendance_submissions``."""
 
     __tablename__ = "attendance_submissions"
-    __table_args__ = {"schema": "public"}
 
     # ── columns ──────────────────────────────────────────────
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    user_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
-        ForeignKey("public.profiles.id", ondelete="CASCADE"),
+    user_id: Mapped[str] = mapped_column(
+        String,
+        ForeignKey('"user".id', ondelete="CASCADE"),
         nullable=False,
     )
     schedule_image_url: Mapped[str] = mapped_column(Text, nullable=False)

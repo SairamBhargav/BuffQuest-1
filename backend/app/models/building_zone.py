@@ -17,7 +17,6 @@ class BuildingZone(Base):
     """
 
     __tablename__ = "building_zones"
-    __table_args__ = {"schema": "public"}
 
     # ── columns ──────────────────────────────────────────────
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)

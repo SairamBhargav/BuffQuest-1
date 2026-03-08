@@ -15,7 +15,6 @@ class Settings(BaseSettings):
 
     # ---- Required (no default – fails fast if missing) ----
     DATABASE_URL: str
-    SUPABASE_JWT_SECRET: str
 
     # ---- Empty-string defaults for dev convenience ----
     NEXT_PUBLIC_MAPBOX_TOKEN: str = ""

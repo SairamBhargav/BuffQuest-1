@@ -18,7 +18,7 @@ from app.models.reward_log import RewardLog, RewardSourceType
 
 async def deduct_quest_cost(
     db: AsyncSession,
-    creator_id,
+    creator_id: str,
     quest: Quest,
 ) -> RewardLog:
     """Deduct ``cost_credits`` from the creator when posting a quest.

@@ -1,11 +1,9 @@
 """SQLAlchemy model for the ``quests`` table."""
 
 import enum
-import uuid
 from datetime import datetime
 
-from sqlalchemy import BigInteger, DateTime, Enum, ForeignKey, Integer, Text, func
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import BigInteger, DateTime, Enum, ForeignKey, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -32,24 +30,23 @@ class Quest(Base):
     """Maps to ``public.quests``."""
 
     __tablename__ = "quests"
-    __table_args__ = {"schema": "public"}
 
     # ── columns ──────────────────────────────────────────────
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    creator_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
-        ForeignKey("public.profiles.id", ondelete="CASCADE"),
+    creator_id: Mapped[str] = mapped_column(
+        String,
+        ForeignKey('user.id', ondelete="CASCADE"),
         nullable=False,
     )
-    hunter_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True),
-        ForeignKey("public.profiles.id", ondelete="SET NULL"),
+    hunter_id: Mapped[str | None] = mapped_column(
+        String,
+        ForeignKey('user.id', ondelete="SET NULL"),
     )
     title: Mapped[str] = mapped_column(Text, nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False)
     building_zone_id: Mapped[int] = mapped_column(
         BigInteger,
-        ForeignKey("public.building_zones.id", ondelete="RESTRICT"),
+        ForeignKey("building_zones.id", ondelete="RESTRICT"),
         nullable=False,
     )
     cost_credits: Mapped[int] = mapped_column(
@@ -62,12 +59,12 @@ class Quest(Base):
         Integer, nullable=False, default=0
     )
     status: Mapped[QuestStatus] = mapped_column(
-        Enum(QuestStatus, name="quest_status", schema="public", create_type=False),
+        String,
         nullable=False,
         default=QuestStatus.OPEN,
     )
     moderation_status: Mapped[ModerationStatus] = mapped_column(
-        Enum(ModerationStatus, name="moderation_status", schema="public", create_type=False),
+        String,
         nullable=False,
         default=ModerationStatus.PENDING,
     )
@@ -87,10 +84,14 @@ class Quest(Base):
 
     # ── relationships ────────────────────────────────────────
     creator = relationship(
-        "Profile", back_populates="created_quests", foreign_keys=[creator_id]
+        "Profile",
+        back_populates="created_quests",
+        foreign_keys="Quest.creator_id",
     )
     hunter = relationship(
-        "Profile", back_populates="hunted_quests", foreign_keys=[hunter_id]
+        "Profile",
+        back_populates="hunted_quests",
+        foreign_keys="Quest.hunter_id",
     )
     building_zone = relationship("BuildingZone", back_populates="quests")
     messages = relationship(

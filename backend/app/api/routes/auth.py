@@ -4,8 +4,6 @@ Authentication is handled by Supabase Auth. These endpoints provide
 a backend passthrough for the frontend to verify session state.
 """
 
-import uuid
-
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -23,7 +21,7 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 # ------------------------------------------------------------------
 @router.get("/me", response_model=ProfileRead)
 async def auth_me(
-    user_id: uuid.UUID = Depends(get_current_user),
+    user_id: str = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Return the currently authenticated user's profile.

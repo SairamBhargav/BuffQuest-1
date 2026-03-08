@@ -23,7 +23,7 @@ const CU_BOULDER_BOUNDS: [[number, number], [number, number]] = [
 ];
 
 export default function MapMockup() {
-  const { quests, user, claimQuest, getActiveQuests } = useQuests();
+  const { quests, user, claimQuest, getActiveQuests, loading } = useQuests();
   const { addToast } = useToast();
   const [isClient, setIsClient] = useState(false);
   const [selectedQuest, setSelectedQuest] = useState<Quest | null>(null);
@@ -56,6 +56,30 @@ export default function MapMockup() {
 
   if (!isClient) return null;
 
+  if (loading) {
+    return (
+      <div className="w-full h-[100dvh] bg-[#060a14] flex flex-col items-center justify-center space-y-4">
+        <motion.div
+          animate={{
+            scale: [1, 1.2, 1],
+            rotate: [0, 180, 360],
+          }}
+          transition={{
+            duration: 2,
+            repeat: Infinity,
+            ease: "easeInOut"
+          }}
+          className="w-16 h-16 rounded-full bg-gradient-to-br from-yellow-400 to-yellow-600 flex items-center justify-center shadow-[0_0_30px_rgba(234,179,8,0.3)]"
+        >
+          <span className="text-3xl">⚔️</span>
+        </motion.div>
+        <p className="text-yellow-500 font-black tracking-[0.2em] uppercase text-sm animate-pulse">
+          Loading Quests...
+        </p>
+      </div>
+    );
+  }
+
   const isLightMap = lightPreset === "day" || lightPreset === "dawn";
   const glassChip = isLightMap
     ? "bg-black/50 backdrop-blur-[15px] border border-white/10 shadow-lg text-white"
@@ -67,6 +91,10 @@ export default function MapMockup() {
   const openQuests = quests.filter(q => q.status === 'open');
 
   const handleClaim = (quest: Quest) => {
+    if (!user) {
+      addToast("Please sign in to open quests", "error");
+      return;
+    }
     claimQuest(quest.id);
     setSelectedQuest(null);
     addToast(`Quest claimed: "${quest.title}"`, "success");
@@ -81,6 +109,7 @@ export default function MapMockup() {
   };
 
   const openActiveQuestChat = (quest: Quest) => {
+    if (!user) return;
     setActiveChatQuest(quest);
     setChatRole(quest.creatorId === user.id ? "creator" : "hunter");
     setIsChatOpen(true);
@@ -101,22 +130,26 @@ export default function MapMockup() {
       <div className="absolute z-10 top-0 left-0 w-full p-4 sm:p-6 pointer-events-none flex justify-between items-start" style={{ paddingTop: 'max(var(--sat), 1rem)' }}>
         <div className="flex gap-2 sm:gap-4 mt-1 sm:mt-2 flex-wrap">
           {/* Credits Chip */}
-          <motion.div 
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            className={`${glassChip} pointer-events-auto px-3 py-2 sm:px-5 sm:py-3 rounded-[40px] font-black flex items-center gap-1.5 sm:gap-2 text-sm sm:text-base`}
-          >
-            <span className="tracking-tight">{user.credits} <span className={`text-[10px] sm:text-xs ${chipLabel} font-bold uppercase tracking-widest pl-0.5 sm:pl-1`}>Credits</span></span>
-          </motion.div>
+          {user && (
+            <motion.div 
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className={`${glassChip} pointer-events-auto px-3 py-2 sm:px-5 sm:py-3 rounded-[40px] font-black flex items-center gap-1.5 sm:gap-2 text-sm sm:text-base`}
+            >
+              <span className="tracking-tight">{user.credits} <span className={`text-[10px] sm:text-xs ${chipLabel} font-bold uppercase tracking-widest pl-0.5 sm:pl-1`}>Credits</span></span>
+            </motion.div>
+          )}
 
           {/* Notoriety Chip */}
-          <motion.div 
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            className={`${glassChip} pointer-events-auto px-3 py-2 sm:px-5 sm:py-3 rounded-[40px] font-black flex items-center gap-1.5 sm:gap-2 text-sm sm:text-base`}
-          >
-            <span className="tracking-tight">{user.notoriety} <span className={`text-[10px] sm:text-xs ${chipLabel} font-bold uppercase tracking-widest pl-0.5 sm:pl-1`}>Notoriety</span></span>
-          </motion.div>
+          {user && (
+            <motion.div 
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className={`${glassChip} pointer-events-auto px-3 py-2 sm:px-5 sm:py-3 rounded-[40px] font-black flex items-center gap-1.5 sm:gap-2 text-sm sm:text-base`}
+            >
+              <span className="tracking-tight">{user.notoriety} <span className={`text-[10px] sm:text-xs ${chipLabel} font-bold uppercase tracking-widest pl-0.5 sm:pl-1`}>Notoriety</span></span>
+            </motion.div>
+          )}
         </div>
 
         {/* Right Side: Attendance + Profile */}
@@ -135,7 +168,7 @@ export default function MapMockup() {
 
           {/* Profile Avatar */}
           <Link 
-            href="/profile" 
+            href={user ? "/profile" : "/login"}
             className={`${glassChip} pointer-events-auto h-11 w-11 sm:h-14 sm:w-14 rounded-full flex items-center justify-center text-2xl sm:text-3xl hover:scale-105 active:scale-90 transition-transform relative shrink-0`}
           >
             🧑‍🎓
@@ -258,7 +291,7 @@ export default function MapMockup() {
                   <button onClick={() => setSelectedQuest(null)} className="text-slate-400 hover:text-slate-600 bg-white/40 rounded-full w-6 h-6 flex items-center justify-center font-bold text-xs backdrop-blur-sm shrink-0 ml-2">✕</button>
                 </div>
 
-                <p className="text-xs text-slate-500 mb-2 font-medium">📍 {selectedQuest.building}</p>
+                <p className="text-xs text-slate-500 mb-2 font-medium">📍 {selectedQuest.buildingName}</p>
 
                 {selectedQuest.description && (
                   <p className="text-sm text-slate-600 mb-3 leading-relaxed line-clamp-3">{selectedQuest.description}</p>
@@ -288,7 +321,13 @@ export default function MapMockup() {
           className="pointer-events-auto"
         >
           <button 
-            onClick={() => setIsCreateModalOpen(true)}
+            onClick={() => {
+              if (!user) {
+                addToast("Please sign in to post quests", "error");
+                return;
+              }
+              setIsCreateModalOpen(true);
+            }}
             className="squishy-btn text-yellow-900 px-6 py-4 sm:px-8 sm:py-5 rounded-[40px] font-black text-base sm:text-[1.1rem] uppercase tracking-widest border-2 border-white/80 flex items-center gap-2 sm:gap-3 whitespace-nowrap"
           >
             <span className="text-xl sm:text-2xl drop-shadow-sm inner-glow-text text-white">✚</span> POST QUEST

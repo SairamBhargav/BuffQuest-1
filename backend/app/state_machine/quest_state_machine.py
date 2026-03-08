@@ -4,15 +4,9 @@ from typing import Dict, Optional
 from fastapi import HTTPException, status
 from pydantic import BaseModel
 
-class QuestStatus(str, Enum):
-    OPEN = "open"
-    IN_PROGRESS = "in_progress"
-    PENDING_VERIFICATION = "pending_verification"
-    COMPLETED = "completed"
-    CANCELLED = "cancelled"
+from app.models.quest import QuestStatus
 
-
-class Quest(BaseModel):
+class QuestMachineState(BaseModel):
     id: str
     creator_id: str
     title: str
@@ -51,7 +45,7 @@ def claim_quest(quest_id: str, user_id: str) -> Quest:
     return quest
 
 
-def complete_quest(quest_id: str, user_id: str) -> Quest:
+def complete_quest(quest_id: str, user_id: str) -> QuestMachineState:
     """
     Marks an in-progress quest as pending verification by the assigned hunter.
     """
