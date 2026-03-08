@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import React, { useState, useCallback } from "react";
+import { motion, AnimatePresence, useMotionValue, useTransform, PanInfo } from "framer-motion";
 import { useQuests } from "@/context/QuestContext";
 import { useToast } from "@/context/ToastContext";
 
@@ -95,6 +95,16 @@ export default function CreateQuestModal({ isOpen, onClose }: CreateQuestModalPr
     onClose();
   };
 
+  const dragY = useMotionValue(0);
+  const backdropOpacity = useTransform(dragY, [0, 300], [1, 0]);
+
+  const handleDragEnd = useCallback((_: any, info: PanInfo) => {
+    // If dragged down past 120px or with enough velocity, dismiss
+    if (info.offset.y > 120 || info.velocity.y > 500) {
+      onClose();
+    }
+  }, [onClose]);
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -104,22 +114,27 @@ export default function CreateQuestModal({ isOpen, onClose }: CreateQuestModalPr
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
+            style={{ opacity: backdropOpacity }}
             onClick={onClose}
             className="absolute inset-0 bg-black/60 backdrop-blur-sm pointer-events-auto"
           />
 
-          {/* Modal Container */}
+          {/* Modal Container — Draggable */}
           <motion.div
             initial={{ y: "100%", opacity: 0.8 }}
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: "100%", opacity: 0.8 }}
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
+            drag="y"
+            dragConstraints={{ top: 0, bottom: 0 }}
+            dragElastic={{ top: 0, bottom: 0.6 }}
+            onDragEnd={handleDragEnd}
             className="relative w-full sm:w-[500px] max-h-[90vh] overflow-y-auto liquid-glass-dark rounded-t-[40px] sm:rounded-[40px] border-b-0 sm:border-b pointer-events-auto"
-            style={{ paddingBottom: 'max(var(--sab), 2rem)' }}
+            style={{ paddingBottom: 'max(var(--sab), 2rem)', y: dragY }}
           >
-            {/* Handle Bar (Mobile) */}
-            <div className="w-full flex justify-center pt-4 pb-2 sm:hidden absolute top-0 left-0">
-              <div className="w-12 h-1.5 bg-white/30 rounded-full" />
+            {/* Drag Handle Bar */}
+            <div className="w-full flex justify-center pt-4 pb-2 cursor-grab active:cursor-grabbing touch-none">
+              <div className="w-12 h-1.5 bg-white/30 rounded-full hover:bg-white/50 transition-colors" />
             </div>
 
             <div className="p-6 pt-10 sm:pt-8 w-full">
