@@ -25,12 +25,18 @@ export const auth = betterAuth({
         sendOnSignUp: true,
         autoSignInAfterVerification: true,
         sendVerificationEmail: async ({ user, url }, request) => {
+            // Rewrite verification URL to always use the configured base URL
+            // (prevents localhost links when triggered from local dev)
+            const baseURL = process.env.BETTER_AUTH_URL || '';
+            const parsed = new URL(url);
+            const correctUrl = new URL(parsed.pathname + parsed.search, baseURL).toString();
+
             try {
                 await transporter.sendMail({
                     from: `"BuffQuest" <${process.env.EMAIL_USER}>`,
                     to: user.email,
                     subject: "Verify your email address for BuffQuest",
-                    html: `<p>Please click the link below to verify your email address:</p><p><a href="${url}">Verify Email</a></p>`,
+                    html: `<p>Please click the link below to verify your email address:</p><p><a href="${correctUrl}">Verify Email</a></p>`,
                 });
             } catch (error: any) {
                 console.error("Failed to send verification email via Nodemailer:", error.message, error);
