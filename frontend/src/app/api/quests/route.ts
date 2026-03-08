@@ -4,7 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 
 // Initialize Gemini client
 const gemini = new GoogleGenAI({ 
-  apiKey: process.env.GEMINI_API_KEY || '' 
+  apiKey: process.env.GEMINI_API_KEY || 'dummy_key_for_build' 
 });
 
 // Initialize Supabase Admin client (bypasses RLS to insert verified quests)
