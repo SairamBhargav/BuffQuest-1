@@ -23,23 +23,11 @@ export default function ActiveQuestChat({ isOpen, onClose, quest, role }: Active
   const { completeQuest, verifyQuest, cancelQuest } = useQuests();
   const { addToast } = useToast();
 
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: "m1",
-      sender: "other",
-      text: "Hey! I can help with this. Are you on campus?",
-      timestamp: "10:42 AM"
-    },
-    {
-      id: "m2",
-      sender: "you",
-      text: "Yeah I'm near the UMC right now!",
-      timestamp: "10:45 AM"
-    }
-  ]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState("");
   const [showReward, setShowReward] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const wsRef = useRef<WebSocket | null>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -51,29 +39,73 @@ export default function ActiveQuestChat({ isOpen, onClose, quest, role }: Active
     }
   }, [messages, isOpen]);
 
-  const handleSend = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!inputText.trim() || !quest) return;
+  // Handle WebSocket connection
+  useEffect(() => {
+    if (!isOpen || !quest) return;
 
-    const newMessage: Message = {
-      id: Date.now().toString(),
-      sender: "you",
-      text: inputText,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    // First fetch historical messages
+    fetch(`http://localhost:8000/api/quests/${quest.id}/messages`, {
+      credentials: "include"
+    })
+      .then(res => res.json())
+      .then((data: any[]) => {
+        if (!Array.isArray(data)) return;
+        setMessages(data.map(msg => ({
+          id: msg.id.toString(),
+          sender: msg.sender_id === quest.creatorId && role === "creator" ? "you" :
+                  msg.sender_id === quest.hunterId && role === "hunter" ? "you" : "other",
+          text: msg.text,
+          timestamp: new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        })));
+        scrollToBottom();
+      })
+      .catch(err => console.error("Failed to load chat history:", err));
+
+    // Connect WebSocket
+    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+    const wsUrl = `ws://localhost:8000/api/quests/${quest.id}/ws`;
+    const ws = new WebSocket(wsUrl);
+    wsRef.current = ws;
+
+    ws.onmessage = (event) => {
+      try {
+        const payload = JSON.parse(event.data);
+        const incomingSender = payload.sender_id === quest.creatorId && role === "creator" ? "you" :
+                               payload.sender_id === quest.hunterId && role === "hunter" ? "you" : "other";
+        
+        const newMessage: Message = {
+          id: payload.id.toString(),
+          sender: incomingSender,
+          text: payload.text,
+          timestamp: new Date(payload.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        };
+        setMessages(prev => [...prev, newMessage]);
+      } catch (err) {
+        console.error("Message parse error:", err);
+      }
     };
 
-    setMessages([...messages, newMessage]);
-    setInputText("");
-    
-    // Auto-reply mock
-    setTimeout(() => {
-      setMessages(prev => [...prev, {
-        id: (Date.now() + 1).toString(),
-        sender: "other",
-        text: "Got it, I'll be there in 5 minutes! 🏃‍♂️💨",
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      }]);
-    }, 1500);
+    ws.onclose = () => {
+      console.log("Chat disconnected.");
+    };
+
+    return () => {
+      if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+        ws.close();
+      }
+    };
+  }, [isOpen, quest, role]);
+
+  const handleSend = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!inputText.trim() || !quest || !wsRef.current) return;
+
+    if (wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(inputText);
+      setInputText("");
+    } else {
+      addToast("Chat is disconnected. Reconnecting...", "error");
+    }
   };
 
   const handleComplete = () => {

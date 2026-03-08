@@ -3,6 +3,8 @@
 import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+import sys
+import traceback
 from fastapi.responses import JSONResponse
 
 from app.api.routes import (
@@ -21,7 +23,11 @@ app = FastAPI(title="BuffQuest API", version="0.1.0")
 # -- CORS --
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # tighten for production
+    allow_origins=[
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://0.0.0.0:3000",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -47,6 +53,8 @@ async def health():
 async def global_exception_handler(request, exc):
     logger = logging.getLogger("buffquest.error")
     logger.exception("Unhandled exception occurred")
+    print(f"CRASH: {exc}", file=sys.stderr)
+    traceback.print_exc()
     return JSONResponse(
         status_code=500,
         content={"detail": "Internal Server Error"}

@@ -15,6 +15,7 @@ class QuestCreate(BaseModel):
     reward_credits: int = Field(default=0, ge=0)
     reward_notoriety: int = Field(default=0, ge=0)
     expires_at: datetime | None = None
+    moderation_status: str | None = None
 
 
 class QuestUpdate(BaseModel):
@@ -51,3 +52,9 @@ class QuestRead(BaseModel):
     verified_at: datetime | None = None
     rewarded_at: datetime | None = None
     expires_at: datetime | None = None
+
+
+class QuestClaimCreate(BaseModel):
+    """Payload for claiming a quest requiring physical proximity."""
+    user_lat: float
+    user_lon: float
