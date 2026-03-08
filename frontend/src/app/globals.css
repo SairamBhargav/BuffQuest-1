@@ -3,6 +3,18 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  
+  /* System-Wide Safe Area Variables */
+  --sat: env(safe-area-inset-top, 0px);
+  --sar: env(safe-area-inset-right, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
+
+  /* Fluid Typography & Dynamic Scaling */
+  --fluid-min-width: 320;
+  --fluid-max-width: 1024;
+  --fluid-screen: 100vw;
+  --fluid-bp: calc((var(--fluid-screen) - var(--fluid-min-width) / 16 * 1rem) / (var(--fluid-max-width) - var(--fluid-min-width)));
 }
 
 @theme inline {
@@ -21,15 +33,27 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  
+  /* Prevent overscroll bounce on mobile PWAs */
+  overscroll-behavior-y: none;
+  
+  /* Apply safe-area paddings to root to prevent clipping */
+  padding-top: var(--sat);
+  padding-bottom: var(--sab);
+  padding-left: var(--sal);
+  padding-right: var(--sar);
+
+  /* Fluid Base Font Size calculation */
+  font-size: clamp(14px, calc(14px + (18 - 14) * var(--fluid-bp)), 18px);
 }
 
 /* Antigravity Gamified Overhaul CSS */
 .liquid-glass {
-  background: rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.85);
   backdrop-filter: blur(15px);
   -webkit-backdrop-filter: blur(15px);
-  border: 1px solid rgba(255, 255, 255, 0.4);
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.15), inset 0 2px 4px rgba(255, 255, 255, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.15), inset 0 2px 4px rgba(255, 255, 255, 0.8);
 }
 
 .liquid-glass-dark {
@@ -74,4 +98,19 @@ body {
 }
 .mapboxgl-ctrl-attrib a {
   color: rgba(255, 255, 255, 0.6) !important;
+}
+
+/* Override Mapbox Popup default white background and padding */
+.liquid-popup .mapboxgl-popup-content {
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  border-radius: 32px !important;
+}
+.liquid-popup .mapboxgl-popup-tip {
+  border-top-color: rgba(255, 255, 255, 0.85) !important; /* Match liquid-glass border/bg */
+  backdrop-filter: blur(15px);
+}
+.liquid-popup.mapboxgl-popup-anchor-bottom .mapboxgl-popup-tip {
+  border-top-color: rgba(255, 255, 255, 0.85) !important;
 }
