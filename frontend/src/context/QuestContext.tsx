@@ -27,7 +27,7 @@ export interface UserProfile {
   email: string;
   credits: number;
   notoriety: number;
-  isVerifiedStudent: boolean;
+  is_verified_student: boolean;
 }
 
 export interface BuildingZone {
@@ -46,7 +46,7 @@ export interface LeaderboardEntry {
   avatar: string;
 }
 
-const api = axios.create({
+export const api = axios.create({
   baseURL: "http://localhost:8000/api",
   withCredentials: true,
   // Ensure we don't accidentally append a trailing slash if we use an empty path
@@ -158,7 +158,7 @@ export function QuestProvider({ children }: { children: ReactNode }) {
 
   const claimQuest = useCallback(async (id: string) => {
     try {
-      const res = await api.post<Quest>(`/claims/quest/${id}`);
+      const res = await api.post<Quest>(`/quests/${id}/claim`);
       setQuests((prev) => prev.map((q) => (q.id === id ? res.data : q)));
     } catch (error) {
        console.error("Failed to claim quest", error);

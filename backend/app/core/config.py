@@ -21,6 +21,10 @@ class Settings(BaseSettings):
     GEMINI_API_KEY: str = ""
     SUPABASE_URL: str = ""
 
+    # ---- Dev Controls ----
+    DEBUG_SQL: bool = False
+    DB_SSL: str = "require"
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

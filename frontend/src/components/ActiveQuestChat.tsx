@@ -2,16 +2,15 @@
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useQuests, Quest } from "@/context/QuestContext";
+import { useQuests, Quest, api } from "@/context/QuestContext";
 import { useToast } from "@/context/ToastContext";
-import axios from "axios";
 import { authClient } from "@/lib/auth-client";
 
 interface Message {
   id: string;
   sender_id: string;
   quest_id: string;
-  content: string;
+  text: string;
   created_at: string;
 }
 
@@ -38,9 +37,7 @@ export default function ActiveQuestChat({ isOpen, onClose, quest, role }: Active
       const token = session?.data?.session?.token;
       if (!token) return;
 
-      const res = await axios.get<Message[]>(`http://localhost:8000/api/quests/${quest.id}/messages`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const res = await api.get<Message[]>(`/quests/${quest.id}/messages`);
       setMessages(res.data);
     } catch (e) {
       console.error("Failed to fetch messages", e);
@@ -77,10 +74,9 @@ export default function ActiveQuestChat({ isOpen, onClose, quest, role }: Active
       const token = session?.data?.session?.token;
       if (!token) return;
 
-      await axios.post(
-        `http://localhost:8000/api/quests/${quest.id}/messages`,
-        { content: currentText },
-        { headers: { Authorization: `Bearer ${token}` } }
+      await api.post(
+        `/quests/${quest.id}/messages`,
+        { text: currentText }
       );
       fetchMessages();
     } catch (e) {
@@ -184,7 +180,7 @@ export default function ActiveQuestChat({ isOpen, onClose, quest, role }: Active
                           : "bg-gradient-to-br from-pink-500/90 to-pink-600/90 text-white rounded-tl-sm font-medium"
                       }`}
                     >
-                      {msg.content}
+                      {msg.text}
                     </div>
                     <span className="text-[10px] uppercase font-black tracking-widest text-slate-500 mt-1 px-1">
                       {timeStr}

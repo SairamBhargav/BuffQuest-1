@@ -35,7 +35,6 @@ export default function CreateQuestModal({ isOpen, onClose }: CreateQuestModalPr
     setIsSubmitting(true);
     setModerationError("");
 
-    try {
       const result = await addQuest({
         title,
         description,
@@ -48,11 +47,6 @@ export default function CreateQuestModal({ isOpen, onClose }: CreateQuestModalPr
         setIsSubmitting(false);
         return;
       }
-    } catch (err) {
-      setModerationError("Failed to connect to the server.");
-      setIsSubmitting(false);
-      return;
-    }
 
     setIsSubmitting(false);
 

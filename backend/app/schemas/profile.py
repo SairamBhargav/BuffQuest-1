@@ -11,7 +11,6 @@ class ProfileRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: str
-    id: str
     email: str | None = None
     name: str
     credits: int

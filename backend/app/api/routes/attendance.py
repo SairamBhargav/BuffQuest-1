@@ -29,7 +29,29 @@ async def check_in(
     """Submit a class attendance check-in.
     
     For now, we auto-approve and award 5 credits immediately.
+    We check for daily duplicates per class.
     """
+    # Duplicate check: same user, same class, same day
+    from datetime import date
+    today = date.today()
+    stmt = (
+        select(AttendanceSubmission)
+        .where(
+            AttendanceSubmission.user_id == user_id,
+            AttendanceSubmission.class_name == payload.class_name,
+            AttendanceSubmission.verification_status == AttendanceVerificationStatus.APPROVED
+        )
+    )
+    # Filter by day independently of time
+    result = await db.execute(stmt)
+    submissions = result.scalars().all()
+    for s in submissions:
+        if s.submission_time.date() == today:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"You have already checked into '{payload.class_name}' today."
+            )
+
     submission = AttendanceSubmission(
         user_id=user_id,
         schedule_image_url=payload.schedule_image_url,

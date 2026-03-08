@@ -26,9 +26,9 @@ class Base(DeclarativeBase):
 
 engine = create_async_engine(
     get_settings().DATABASE_URL,
-    echo=True,           # TEMPORARILY enabled — shows SQL and errors in logs
+    echo=get_settings().DEBUG_SQL,
     pool_pre_ping=True,
-    connect_args={"ssl": "require"},  # Neon Postgres requires SSL (asyncpg style)
+    connect_args={"ssl": get_settings().DB_SSL} if get_settings().DB_SSL else {},
 )
 
 

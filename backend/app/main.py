@@ -1,7 +1,8 @@
-"""BuffQuest API entry point."""
-
+import sys
+import traceback
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from app.api.routes import (
     attendance,
@@ -42,15 +43,13 @@ app.include_router(building_zones.router, prefix="/api")
 async def health():
     return {"status": "ok"}
 
-from fastapi.responses import JSONResponse
-import sys
-import traceback
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request, exc):
     print("!!! TRACEBACK !!!", file=sys.stderr)
     traceback.print_exc(file=sys.stderr)
+    # Don't leak internals in production response
     return JSONResponse(
         status_code=500,
-        content={"detail": "Internal Server Error", "error": str(exc)}
+        content={"detail": "Internal Server Error"}
     )
