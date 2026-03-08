@@ -62,17 +62,32 @@ interface QuestContextType {
 
 const QuestContext = createContext<QuestContextType | undefined>(undefined);
 
-const API_BASE = "http://127.0.0.1:8000/api";
+const getApiBase = () => {
+  const configuredBase = process.env.NEXT_PUBLIC_API_BASE_URL?.trim();
+  if (configuredBase) {
+    return configuredBase.replace(/\/$/, "");
+  }
+
+  return "/api/backend";
+};
 
 const fetchOpts = (method: string, body?: any) => {
+  const headers: HeadersInit = {};
+
+  if (body !== undefined) {
+    headers["Content-Type"] = "application/json";
+  }
+
   const opts: RequestInit = {
     method,
-    headers: { "Content-Type": "application/json" },
+    headers,
     credentials: "include",
   };
-  if (body) {
+
+  if (body !== undefined) {
     opts.body = JSON.stringify(body);
   }
+
   return opts;
 };
 
@@ -81,6 +96,15 @@ export function QuestProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const apiBase = getApiBase();
+
+  const readJson = useCallback(async (response: Response) => {
+    const contentType = response.headers.get("content-type") || "";
+    if (!contentType.includes("application/json")) {
+      return null;
+    }
+    return response.json();
+  }, []);
 
   // Normalizer functions to map Python snake_case to React camelCase if necessary
   const normalizeQuest = (q: any): Quest => ({
@@ -101,29 +125,38 @@ export function QuestProvider({ children }: { children: ReactNode }) {
 
   const refreshData = useCallback(async () => {
     try {
-      // Fetch User
-      const userRes = await fetch(`${API_BASE}/users/me`, fetchOpts("GET"));
-      if (userRes.ok) {
-        const userData = await userRes.json();
-        setUser(normalizeUser(userData));
+      const [userResult, questsResult, leaderboardResult] = await Promise.allSettled([
+        fetch(`${apiBase}/users/me`, fetchOpts("GET")),
+        fetch(`${apiBase}/quests?limit=100`, fetchOpts("GET")),
+        fetch(`${apiBase}/leaderboard`, fetchOpts("GET")),
+      ]);
+
+      if (userResult.status === "fulfilled") {
+        if (userResult.value.ok) {
+          const userData = await readJson(userResult.value);
+          setUser(userData ? normalizeUser(userData) : null);
+        } else if (userResult.value.status === 401) {
+          setUser(null);
+        } else {
+          console.error("Failed to load user profile", userResult.value.status);
+          setUser(null);
+        }
       } else {
+        console.error("Failed to fetch user profile", userResult.reason);
         setUser(null);
       }
 
-      // Fetch Quests
-      const questsRes = await fetch(`${API_BASE}/quests/?limit=100`, fetchOpts("GET"));
-      if (questsRes.ok) {
-        const questsData = await questsRes.json();
-        setQuests(questsData.map(normalizeQuest));
+      if (questsResult.status === "fulfilled" && questsResult.value.ok) {
+        const questsData = await readJson(questsResult.value);
+        setQuests(Array.isArray(questsData) ? questsData.map(normalizeQuest) : []);
+      } else if (questsResult.status === "rejected") {
+        console.error("Failed to fetch quests", questsResult.reason);
       }
 
-      // Fetch Leaderboard (if exists, fallback to empty)
-      const lbRes = await fetch(`${API_BASE}/leaderboard/`, fetchOpts("GET")).catch(() => null);
-      if (lbRes && lbRes.ok) {
-        const lbData = await lbRes.json();
-        setLeaderboard(lbData);
+      if (leaderboardResult.status === "fulfilled" && leaderboardResult.value.ok) {
+        const leaderboardData = await readJson(leaderboardResult.value);
+        setLeaderboard(Array.isArray(leaderboardData) ? leaderboardData : []);
       } else {
-        // Fallback mock leaderboard if missing route
         setLeaderboard([
           { rank: 1, name: "Chip", notoriety: 89, isYou: false, avatar: "👑" },
           { rank: 2, name: "Ralphie", notoriety: 12, isYou: true, avatar: "🧑‍🎓" },
@@ -135,7 +168,7 @@ export function QuestProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [apiBase, readJson]);
 
   useEffect(() => {
     refreshData();
@@ -170,7 +203,7 @@ export function QuestProvider({ children }: { children: ReactNode }) {
         moderation_status: "approved",
       };
 
-      const res = await fetch(`${API_BASE}/quests/`, fetchOpts("POST", backendPayload));
+      const res = await fetch(`${apiBase}/quests`, fetchOpts("POST", backendPayload));
       const resData = await res.json();
       
       if (!res.ok) {
@@ -183,44 +216,44 @@ export function QuestProvider({ children }: { children: ReactNode }) {
     } catch (e: any) {
       return { success: false, error: "Network error submitting quest." };
     }
-  }, [user, refreshData]);
+  }, [apiBase, user, refreshData]);
 
   const claimQuest = useCallback(async (id: string) => {
     try {
-      await fetch(`${API_BASE}/quests/${id}/claim`, fetchOpts("POST"));
+      await fetch(`${apiBase}/quests/${id}/claim`, fetchOpts("POST"));
       await refreshData();
     } catch (e) {
       console.error("Failed to claim quest", e);
     }
-  }, [refreshData]);
+  }, [apiBase, refreshData]);
 
   const completeQuest = useCallback(async (id: string) => {
     try {
-      await fetch(`${API_BASE}/quests/${id}/complete`, fetchOpts("POST"));
+      await fetch(`${apiBase}/quests/${id}/complete`, fetchOpts("POST"));
       await refreshData();
     } catch (e) {
       console.error("Failed to complete quest", e);
     }
-  }, [refreshData]);
+  }, [apiBase, refreshData]);
 
   const verifyQuest = useCallback(async (id: string) => {
     try {
-      await fetch(`${API_BASE}/quests/${id}/verify`, fetchOpts("POST"));
-      await fetch(`${API_BASE}/quests/${id}/reward`, fetchOpts("POST"));
+      await fetch(`${apiBase}/quests/${id}/verify`, fetchOpts("POST"));
+      await fetch(`${apiBase}/quests/${id}/reward`, fetchOpts("POST"));
       await refreshData();
     } catch (e) {
       console.error("Failed to verify & reward quest", e);
     }
-  }, [refreshData]);
+  }, [apiBase, refreshData]);
 
   const cancelQuest = useCallback(async (id: string) => {
     try {
-      await fetch(`${API_BASE}/quests/${id}/cancel`, fetchOpts("POST"));
+      await fetch(`${apiBase}/quests/${id}/cancel`, fetchOpts("POST"));
       await refreshData();
     } catch (e) {
       console.error("Failed to cancel quest", e);
     }
-  }, [refreshData]);
+  }, [apiBase, refreshData]);
 
   const getActiveQuests = useCallback(() => {
     if (!user) return [];

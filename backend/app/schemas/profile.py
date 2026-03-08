@@ -12,11 +12,10 @@ class ProfileRead(BaseModel):
     id: str
     email: str | None = None
     name: str | None = None
-    display_name: str | None = None
     credits: int
     notoriety: int
+    email_verified: bool | None = None
     is_verified_student: bool
-    profile_image_url: str | None = None
     image: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
@@ -25,8 +24,6 @@ class ProfileRead(BaseModel):
 class ProfileUpdate(BaseModel):
     """Fields a user may update on their own profile."""
 
-    display_name: str | None = Field(None, min_length=1, max_length=100)
-    profile_image_url: str | None = None
     name: str | None = Field(None, min_length=1, max_length=100)
     image: str | None = None
 

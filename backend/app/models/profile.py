@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, Integer, String, Text, func
+from sqlalchemy import Boolean, DateTime, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -12,15 +12,18 @@ class Profile(Base):
     """Maps to ``user`` (better-auth table)."""
 
     __tablename__ = "user"
+    __table_args__ = {"schema": "public"}
 
     # ── columns ──────────────────────────────────────────────
     id: Mapped[str] = mapped_column(
         String, primary_key=True
     )
+    name: Mapped[str | None] = mapped_column(Text)
     email: Mapped[str | None] = mapped_column(
         Text, unique=True, index=True
     )
-    display_name: Mapped[str] = mapped_column(Text, nullable=False)
+    email_verified: Mapped[bool] = mapped_column("emailVerified", Boolean, nullable=False, default=False)
+    image: Mapped[str | None] = mapped_column(Text)
     credits: Mapped[int] = mapped_column(
         Integer, nullable=False, default=0
     )
@@ -30,12 +33,11 @@ class Profile(Base):
     is_verified_student: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False
     )
-    profile_image_url: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=func.now()
+        "createdAt", DateTime(timezone=True), nullable=False
     )
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=func.now()
+        "updatedAt", DateTime(timezone=True), nullable=False
     )
 
     # ── relationships ────────────────────────────────────────
@@ -50,3 +52,11 @@ class Profile(Base):
         "AttendanceSubmission", back_populates="user"
     )
     reward_logs = relationship("RewardLog", back_populates="user")
+
+    @property
+    def display_name(self) -> str | None:
+        return self.name
+
+    @property
+    def profile_image_url(self) -> str | None:
+        return self.image

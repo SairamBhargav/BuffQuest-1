@@ -7,6 +7,8 @@ import sys
 import traceback
 from fastapi.responses import JSONResponse
 
+import app.models  # noqa: F401
+
 from app.api.routes import (
     attendance,
     auth,

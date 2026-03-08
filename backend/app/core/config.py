@@ -6,8 +6,12 @@ plain function call.
 """
 
 from functools import lru_cache
+from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+BACKEND_ROOT = Path(__file__).resolve().parents[2]
 
 
 class Settings(BaseSettings):
@@ -15,15 +19,15 @@ class Settings(BaseSettings):
 
     # ---- Required (no default – fails fast if missing) ----
     DATABASE_URL: str
-    SUPABASE_JWT_SECRET: str
+    BETTER_AUTH_SECRET: str = ""
 
     # ---- Empty-string defaults for dev convenience ----
     NEXT_PUBLIC_MAPBOX_TOKEN: str = ""
     GEMINI_API_KEY: str = ""
-    SUPABASE_URL: str = ""
+    BETTER_AUTH_URL: str = "http://localhost:3000"
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=(BACKEND_ROOT / ".env", BACKEND_ROOT / ".env.local"),
         env_file_encoding="utf-8",
         extra="ignore",
     )

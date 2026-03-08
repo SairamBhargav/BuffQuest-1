@@ -23,7 +23,7 @@ const CU_BOULDER_BOUNDS: [[number, number], [number, number]] = [
 ];
 
 export default function MapMockup() {
-  const { quests, user, claimQuest, getActiveQuests } = useQuests();
+  const { quests, user, claimQuest, getActiveQuests, isLoading } = useQuests();
   const { addToast } = useToast();
   const [isClient, setIsClient] = useState(false);
   const [selectedQuest, setSelectedQuest] = useState<Quest | null>(null);
@@ -71,7 +71,29 @@ export default function MapMockup() {
   }, []);
 
   if (!isClient) return null;
-  if (!user) return null;
+  if (isLoading) {
+    return (
+      <div className="flex h-full w-full items-center justify-center bg-gray-950 text-white">
+        <div className="rounded-[28px] border border-white/10 bg-black/40 px-6 py-4 text-center backdrop-blur-md">
+          <p className="text-sm font-black uppercase tracking-[0.2em] text-yellow-400">BuffQuest</p>
+          <p className="mt-2 text-base font-semibold text-white">Loading campus map...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="flex h-full w-full items-center justify-center bg-gray-950 text-white">
+        <div className="max-w-md rounded-[28px] border border-red-400/20 bg-black/50 px-6 py-5 text-center backdrop-blur-md">
+          <p className="text-sm font-black uppercase tracking-[0.2em] text-red-300">Session Required</p>
+          <p className="mt-2 text-base text-slate-200">
+            BuffQuest could not load your profile session. Refresh the page or sign in again.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   const isLightMap = lightPreset === "day" || lightPreset === "dawn";
   const glassChip = isLightMap

@@ -1,10 +1,8 @@
 """Auth endpoints - ``/auth/…``.
 
-Authentication is handled by Supabase Auth. These endpoints provide
+Authentication is handled by better-auth. These endpoints provide
 a backend passthrough for the frontend to verify session state.
 """
-
-import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
@@ -23,12 +21,12 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 # ------------------------------------------------------------------
 @router.get("/me", response_model=ProfileRead)
 async def auth_me(
-    user_id: uuid.UUID = Depends(get_current_user),
+    user_id: str = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Return the currently authenticated user's profile.
 
-    The Supabase JWT is validated via ``get_current_user``,
+    The better-auth session is validated via ``get_current_user``,
     and this endpoint simply returns the matching profile row.
     """
     result = await db.execute(select(Profile).where(Profile.id == user_id))

@@ -30,7 +30,7 @@ class RewardLog(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     user_id: Mapped[str] = mapped_column(
         String,
-        ForeignKey("user.id", ondelete="CASCADE"),
+        ForeignKey("public.user.id", ondelete="CASCADE"),
         nullable=False,
     )
     source_type: Mapped[RewardSourceType] = mapped_column(

@@ -1,17 +1,16 @@
-"""Authentication & JWT verification for Supabase Auth.
+"""Authentication helpers for the frontend better-auth session.
 
 Provides FastAPI dependencies to protect routes:
 
-* ``get_current_user``  - extracts and validates the Bearer token,
-  returns the authenticated user's UUID.
-* ``require_role``      - optional factory that also checks the user's
-  role from the JWT ``user_metadata``.
+* ``get_current_user``  - validates the active better-auth session and
+    returns the authenticated user's UUID.
+* ``require_role``      - currently delegates to ``get_current_user``.
 """
 
 import httpx
 from fastapi import Depends, HTTPException, Request, status
 
-from app.core.config import Settings, get_settings
+from app.core.config import get_settings
 
 
 # ------------------------------------------------------------------
@@ -42,11 +41,13 @@ async def get_current_user(request: Request) -> str:
             detail="No authentication credentials provided",
         )
 
-    # Proxy the credentials mapping to the Next.js better-auth server
+    settings = get_settings()
+
+    # Proxy the credentials mapping to the Next.js better-auth server.
     async with httpx.AsyncClient(timeout=5.0) as client:
         try:
             resp = await client.get(
-                "http://localhost:3000/api/auth/get-session",
+                f"{settings.BETTER_AUTH_URL.rstrip('/')}/api/auth/get-session",
                 headers=headers
             )
             if resp.status_code != 200:
@@ -74,7 +75,7 @@ def require_role(*allowed_roles: str):
     """Dependency factory that enforces role-based access.
 
     Raises **403 Forbidden** if the role is not supported.
-    *(Role validation can be expanded by checking user table or session metadata).*
+    *(Role validation can be expanded by checking user table or session metadata.)*
     """
     async def _check_role(request: Request) -> str:
         # Currently, BuffQuest users are standard roles. We validate active session only.
