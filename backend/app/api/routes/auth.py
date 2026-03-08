@@ -4,6 +4,7 @@ Authentication is handled by better-auth. These endpoints provide
 a backend passthrough for the frontend to verify session state.
 """
 
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
