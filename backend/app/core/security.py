@@ -151,6 +151,12 @@ def require_role(*allowed_roles: str):
                 detail="Token missing subject claim",
             )
 
-        return uuid.UUID(sub)
+        try:
+            return uuid.UUID(sub)
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid user ID in token",
+            )
 
     return _check_role
