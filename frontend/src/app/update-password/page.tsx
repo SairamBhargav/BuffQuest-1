@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { authClient } from '@/lib/auth-client'
 import { useRouter } from 'next/navigation'
+import { motion } from 'framer-motion'
 
 export default function UpdatePasswordPage() {
   const [password, setPassword] = useState('')
@@ -34,7 +35,7 @@ export default function UpdatePasswordPage() {
       } else {
         setMessage('Password updated successfully! Redirecting to map...')
         setTimeout(() => {
-          router.push('/map')
+          router.push('/')
         }, 2000)
       }
     } catch (err) {
@@ -47,18 +48,23 @@ export default function UpdatePasswordPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center p-4 bg-gray-50">
-      <div className="w-full max-w-md space-y-8 bg-white p-8 rounded-xl shadow-md border border-gray-100">
+    <div className="auth-bg flex min-h-[100dvh] flex-col items-center justify-center p-4" style={{ paddingTop: 'max(var(--sat), 1rem)', paddingBottom: 'max(var(--sab), 1rem)', paddingLeft: 'max(var(--sal), 1rem)', paddingRight: 'max(var(--sar), 1rem)' }}>
+      <motion.div
+        initial={{ y: 30, opacity: 0, scale: 0.95 }}
+        animate={{ y: 0, opacity: 1, scale: 1 }}
+        transition={{ type: "spring", stiffness: 260, damping: 22 }}
+        className="w-full max-w-md space-y-6 liquid-glass-dark p-8 rounded-[32px] shadow-2xl border border-white/10"
+      >
         <div className="text-center">
-          <h2 className="mt-6 text-3xl font-extrabold text-gray-900">Update Password</h2>
-          <p className="mt-2 text-sm text-gray-600">
+          <h2 className="text-2xl font-black text-white tracking-tight drop-shadow-md">Update Password</h2>
+          <p className="mt-2 text-sm text-slate-400 font-medium">
             Enter your new password below.
           </p>
         </div>
-        <form className="mt-8 space-y-6" onSubmit={handleUpdate}>
-          <div className="rounded-md shadow-sm space-y-4">
+        <form className="space-y-5" onSubmit={handleUpdate}>
+          <div className="space-y-4">
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="password" className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">
                 New Password
               </label>
               <input
@@ -67,15 +73,15 @@ export default function UpdatePasswordPage() {
                 type="password"
                 autoComplete="new-password"
                 required
-                className="appearance-none relative block w-full px-3 py-3 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-yellow-500 focus:border-yellow-500 focus:z-10 sm:text-sm"
-                placeholder="********"
+                className="w-full px-4 py-3.5 bg-white/[0.06] border border-white/[0.1] text-white rounded-2xl focus:outline-none focus:border-yellow-400/50 focus:shadow-[0_0_20px_rgba(255,214,10,0.1)] transition-all placeholder-slate-600 text-sm"
+                placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
             </div>
             <div>
-              <label htmlFor="confirm-password" className="block text-sm font-medium text-gray-700 mb-1">
-                Confirm New Password
+              <label htmlFor="confirm-password" className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">
+                Confirm Password
               </label>
               <input
                 id="confirm-password"
@@ -83,37 +89,44 @@ export default function UpdatePasswordPage() {
                 type="password"
                 autoComplete="new-password"
                 required
-                className="appearance-none relative block w-full px-3 py-3 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-yellow-500 focus:border-yellow-500 focus:z-10 sm:text-sm"
-                placeholder="********"
+                className="w-full px-4 py-3.5 bg-white/[0.06] border border-white/[0.1] text-white rounded-2xl focus:outline-none focus:border-yellow-400/50 focus:shadow-[0_0_20px_rgba(255,214,10,0.1)] transition-all placeholder-slate-600 text-sm"
+                placeholder="••••••••"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
               />
             </div>
           </div>
 
-          <div>
-            <button
-              type="submit"
-              disabled={loading}
-              className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-md text-black bg-yellow-400 hover:bg-yellow-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 disabled:opacity-50 transition-colors"
-            >
-              {loading ? 'Updating...' : 'Update Password'}
-            </button>
-          </div>
+          <motion.button
+            whileTap={{ scale: 0.95 }}
+            type="submit"
+            disabled={loading}
+            className="w-full squishy-btn text-yellow-900 py-3.5 rounded-2xl font-black uppercase tracking-widest text-sm disabled:opacity-50 transition-colors border-2 border-white/40"
+          >
+            {loading ? 'Updating...' : 'Update Password'}
+          </motion.button>
         </form>
 
         {message && (
-          <div className="mt-4 p-4 text-sm text-green-700 bg-green-100 rounded-lg text-center font-medium">
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="p-4 text-sm text-green-400 bg-green-500/10 border border-green-500/20 rounded-2xl text-center font-bold"
+          >
             {message}
-          </div>
+          </motion.div>
         )}
-        
+
         {error && (
-          <div className="mt-4 p-4 text-sm text-red-700 bg-red-100 rounded-lg text-center font-medium flex flex-col gap-1">
-            <span>{error}</span>
-          </div>
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="p-4 text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-2xl text-center font-bold"
+          >
+            {error}
+          </motion.div>
         )}
-      </div>
+      </motion.div>
     </div>
   )
 }

@@ -15,7 +15,7 @@ const pool = new Pool({
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { title, description, buildingId, rewardCredits, creatorId } = body;
+    const { title, description, buildingId, rewardCredits, creatorId, skipDb } = body;
 
     if (!title || !description) {
       return NextResponse.json({ error: 'Title and description are required.' }, { status: 400 });
@@ -65,7 +65,7 @@ Return ONLY valid JSON in this exact format:
     }
 
     // STEP 3: Insert into Neon Database
-    if (!process.env.DATABASE_URL) {
+    if (skipDb || !process.env.DATABASE_URL) {
       return NextResponse.json({ success: true, quest: { id: "mock", title } }, { status: 201 });
     }
 

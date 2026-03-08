@@ -2,6 +2,8 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useQuests, Quest } from "@/context/QuestContext";
+import { useToast } from "@/context/ToastContext";
 
 interface Message {
   id: string;
@@ -13,26 +15,30 @@ interface Message {
 interface ActiveQuestChatProps {
   isOpen: boolean;
   onClose: () => void;
-  questTitle: string;
-  opponentName: string;
+  quest: Quest | null;
+  role: "creator" | "hunter";
 }
 
-export default function ActiveQuestChat({ isOpen, onClose, questTitle, opponentName }: ActiveQuestChatProps) {
+export default function ActiveQuestChat({ isOpen, onClose, quest, role }: ActiveQuestChatProps) {
+  const { completeQuest, verifyQuest, cancelQuest } = useQuests();
+  const { addToast } = useToast();
+
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "m1",
       sender: "other",
-      text: "Hey! I can grab those notes for you. Are you on campus?",
+      text: "Hey! I can help with this. Are you on campus?",
       timestamp: "10:42 AM"
     },
     {
       id: "m2",
       sender: "you",
-      text: "Yeah I'm sitting in the UMC right now by the fountain.",
+      text: "Yeah I'm near the UMC right now!",
       timestamp: "10:45 AM"
     }
   ]);
   const [inputText, setInputText] = useState("");
+  const [showReward, setShowReward] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -47,7 +53,7 @@ export default function ActiveQuestChat({ isOpen, onClose, questTitle, opponentN
 
   const handleSend = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputText.trim()) return;
+    if (!inputText.trim() || !quest) return;
 
     const newMessage: Message = {
       id: Date.now().toString(),
@@ -62,13 +68,41 @@ export default function ActiveQuestChat({ isOpen, onClose, questTitle, opponentN
     // Auto-reply mock
     setTimeout(() => {
       setMessages(prev => [...prev, {
-        id: Date.now().toString(),
+        id: (Date.now() + 1).toString(),
         sender: "other",
         text: "Got it, I'll be there in 5 minutes! 🏃‍♂️💨",
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       }]);
     }, 1500);
   };
+
+  const handleComplete = () => {
+    if (!quest) return;
+    completeQuest(quest.id);
+    addToast("Quest marked as completed! Awaiting creator verification.", "info");
+  };
+
+  const handleVerify = () => {
+    if (!quest) return;
+    verifyQuest(quest.id);
+    setShowReward(true);
+    addToast(`+${quest.bounty} credits earned! 🎉`, "reward");
+    setTimeout(() => {
+      setShowReward(false);
+      onClose();
+    }, 2500);
+  };
+
+  const handleCancel = () => {
+    if (!quest) return;
+    cancelQuest(quest.id);
+    addToast("Quest cancelled. Credits refunded.", "info");
+    onClose();
+  };
+
+  if (!quest) return null;
+
+  const isChatLocked = quest.status === "verified" || quest.status === "cancelled";
 
   return (
     <AnimatePresence>
@@ -93,16 +127,27 @@ export default function ActiveQuestChat({ isOpen, onClose, questTitle, opponentN
           >
             {/* Header */}
             <div className="px-6 py-4 border-b border-white/10 flex justify-between items-center bg-white/5 rounded-t-[40px]">
-              <div>
-                <h3 className="font-black text-white text-lg drop-shadow-sm">{questTitle}</h3>
-                <p className="text-sm font-bold text-slate-400 flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.8)]"></span>
-                  Chatting with <span className="text-slate-300">{opponentName}</span>
-                </p>
+              <div className="flex-1 min-w-0">
+                <h3 className="font-black text-white text-lg drop-shadow-sm truncate">{quest.title}</h3>
+                <div className="flex items-center gap-3 mt-1">
+                  <p className="text-sm font-bold text-slate-400 flex items-center gap-1.5">
+                    <span className={`w-2 h-2 rounded-full ${
+                      quest.status === "claimed" ? "bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.8)]" :
+                      quest.status === "completed" ? "bg-yellow-400 shadow-[0_0_8px_rgba(255,214,10,0.8)]" :
+                      "bg-slate-500"
+                    }`} />
+                    {quest.status === "claimed" && "In Progress"}
+                    {quest.status === "completed" && "Awaiting Verification"}
+                    {quest.status === "verified" && "Verified ✓"}
+                  </p>
+                  <span className="text-xs text-yellow-400 font-black bg-yellow-400/10 px-2 py-0.5 rounded-full">
+                    {quest.bounty} 💰
+                  </span>
+                </div>
               </div>
               <button
                 onClick={onClose}
-                className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-slate-300 hover:text-white transition-colors"
+                className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-slate-300 hover:text-white transition-colors shrink-0 ml-3"
               >
                 ✕
               </button>
@@ -122,8 +167,8 @@ export default function ActiveQuestChat({ isOpen, onClose, questTitle, opponentN
                     <div
                       className={`max-w-[80%] px-5 py-3 rounded-2xl shadow-lg ${
                         isYou
-                          ? "bg-gradient-to-br from-yellow-400 to-yellow-600 text-yellow-950 rounded-tr-sm font-bold"
-                          : "bg-white/10 text-white rounded-tl-sm font-medium border border-white/5 backdrop-blur-md"
+                          ? "bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-tr-sm font-bold"
+                          : "bg-gradient-to-br from-pink-500/90 to-pink-600/90 text-white rounded-tl-sm font-medium"
                       }`}
                     >
                       {msg.text}
@@ -135,27 +180,84 @@ export default function ActiveQuestChat({ isOpen, onClose, questTitle, opponentN
                 );
               })}
               <div ref={messagesEndRef} />
+
+              {/* Reward Burst Animation */}
+              <AnimatePresence>
+                {showReward && (
+                  <motion.div
+                    initial={{ scale: 0, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    exit={{ scale: 0, opacity: 0 }}
+                    transition={{ type: "spring", stiffness: 500, damping: 20 }}
+                    className="flex flex-col items-center justify-center py-8"
+                  >
+                    <div className="text-6xl mb-3 animate-reward-burst">🎉</div>
+                    <span className="text-2xl font-black text-yellow-400 glow-gold">+{quest.bounty} Credits!</span>
+                    <span className="text-sm font-bold text-slate-400 mt-1">Quest Complete</span>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
 
-            {/* Input Area */}
-            <div className="p-4 sm:p-6 border-t border-white/10 bg-black/20" style={{ paddingBottom: 'calc(var(--sab) + 1.5rem)' }}>
-              <form onSubmit={handleSend} className="relative flex items-center">
-                <input
-                  type="text"
-                  value={inputText}
-                  onChange={(e) => setInputText(e.target.value)}
-                  placeholder="Type a message..."
-                  className="w-full bg-white/10 border border-white/20 text-white placeholder-slate-400 rounded-full py-4 pl-6 pr-16 focus:outline-none focus:ring-2 focus:ring-yellow-400/50 transition-all font-medium"
-                />
-                <button
-                  type="submit"
-                  disabled={!inputText.trim()}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-yellow-400 text-yellow-900 rounded-full flex items-center justify-center shadow-lg hover:bg-yellow-300 active:scale-95 disabled:opacity-50 disabled:active:scale-100 transition-all font-black text-xl"
+            {/* Action Buttons Area */}
+            {!isChatLocked && (
+              <div className="px-6 py-3 border-t border-white/10 bg-black/10 flex gap-3">
+                {role === "hunter" && quest.status === "claimed" && (
+                  <motion.button
+                    whileTap={{ scale: 0.95 }}
+                    onClick={handleComplete}
+                    className="flex-1 squishy-btn text-yellow-900 font-black py-3 rounded-[24px] uppercase tracking-wider text-sm"
+                  >
+                    Mark Completed
+                  </motion.button>
+                )}
+                {role === "creator" && quest.status === "completed" && (
+                  <motion.button
+                    whileTap={{ scale: 0.95 }}
+                    onClick={handleVerify}
+                    className="flex-1 squishy-btn text-yellow-900 font-black py-3 rounded-[24px] uppercase tracking-wider text-sm"
+                  >
+                    Verify & Reward
+                  </motion.button>
+                )}
+                <motion.button
+                  whileTap={{ scale: 0.95 }}
+                  onClick={handleCancel}
+                  className="px-5 py-3 rounded-[24px] bg-white/10 text-slate-400 font-black uppercase tracking-wider text-sm hover:bg-red-500/20 hover:text-red-400 transition-colors"
                 >
-                  ↑
-                </button>
-              </form>
-            </div>
+                  Cancel
+                </motion.button>
+              </div>
+            )}
+
+            {/* Input Area */}
+            {!isChatLocked && (
+              <div className="p-4 sm:p-6 border-t border-white/10 bg-black/20" style={{ paddingBottom: 'calc(var(--sab) + 1.5rem)' }}>
+                <form onSubmit={handleSend} className="relative flex items-center">
+                  <input
+                    type="text"
+                    value={inputText}
+                    onChange={(e) => setInputText(e.target.value)}
+                    placeholder="Type a message..."
+                    className="w-full bg-white/10 border border-white/20 text-white placeholder-slate-400 rounded-full py-4 pl-6 pr-16 focus:outline-none focus:ring-2 focus:ring-yellow-400/50 transition-all font-medium"
+                  />
+                  <button
+                    type="submit"
+                    disabled={!inputText.trim()}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-yellow-400 text-yellow-900 rounded-full flex items-center justify-center shadow-lg hover:bg-yellow-300 active:scale-95 disabled:opacity-50 disabled:active:scale-100 transition-all font-black text-xl"
+                  >
+                    ↑
+                  </button>
+                </form>
+              </div>
+            )}
+
+            {/* Locked Chat State */}
+            {isChatLocked && (
+              <div className="p-6 border-t border-white/10 bg-black/20 text-center" style={{ paddingBottom: 'calc(var(--sab) + 1.5rem)' }}>
+                <p className="text-slate-500 font-bold text-sm">This quest session has ended.</p>
+              </div>
+            )}
           </motion.div>
         </React.Fragment>
       )}
