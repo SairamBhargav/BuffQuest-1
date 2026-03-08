@@ -1,7 +1,5 @@
 """Profile endpoints - ``/users/…``."""
 
-import uuid
-
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -19,7 +17,7 @@ router = APIRouter(prefix="/users", tags=["users"])
 # ------------------------------------------------------------------
 @router.get("/me", response_model=ProfileRead)
 async def get_my_profile(
-    user_id: uuid.UUID = Depends(get_current_user),
+    user_id: str = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Return the authenticated user's own profile."""
@@ -35,7 +33,7 @@ async def get_my_profile(
 # ------------------------------------------------------------------
 @router.get("/{user_id}", response_model=ProfileRead)
 async def get_profile(
-    user_id: uuid.UUID,
+    user_id: str,
     db: AsyncSession = Depends(get_db),
 ):
     """Return a user's public profile by ID."""
@@ -52,7 +50,7 @@ async def get_profile(
 @router.patch("/me", response_model=ProfileRead)
 async def update_my_profile(
     payload: ProfileUpdate,
-    user_id: uuid.UUID = Depends(get_current_user),
+    user_id: str = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Update the authenticated user's own profile."""
@@ -75,7 +73,7 @@ async def update_my_profile(
 # ------------------------------------------------------------------
 @router.get("/me/stats", response_model=ProfileStats)
 async def get_my_stats(
-    user_id: uuid.UUID = Depends(get_current_user),
+    user_id: str = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Return credits and notoriety for the authenticated user."""

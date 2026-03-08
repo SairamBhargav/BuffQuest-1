@@ -1,7 +1,5 @@
 """Quest chat endpoints - ``/quests/{quest_id}/messages``."""
 
-import uuid
-
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -23,7 +21,7 @@ async def list_messages(
     quest_id: int,
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
-    user_id: uuid.UUID = Depends(get_current_user),
+    user_id: str = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """List chat messages for a quest.
@@ -55,7 +53,7 @@ async def list_messages(
 async def send_message(
     quest_id: int,
     payload: MessageCreate,
-    user_id: uuid.UUID = Depends(get_current_user),
+    user_id: str = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Send a chat message within an active quest session.
@@ -94,7 +92,7 @@ async def _get_quest_or_404(quest_id: int, db: AsyncSession) -> Quest:
     return quest
 
 
-def _assert_participant(quest: Quest, user_id: uuid.UUID) -> None:
+def _assert_participant(quest: Quest, user_id: str) -> None:
     if user_id not in (quest.creator_id, quest.hunter_id):
         raise HTTPException(
             status.HTTP_403_FORBIDDEN,
