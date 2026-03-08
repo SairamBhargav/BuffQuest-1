@@ -1,6 +1,7 @@
 "use client";
 
-import React, { createContext, useContext, useState, useCallback, ReactNode } from "react";
+import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect } from "react";
+import { authClient } from "@/lib/auth-client";
 
 export type QuestStatus = "open" | "claimed" | "completed" | "verified" | "cancelled";
 
@@ -35,18 +36,18 @@ export interface LeaderboardEntry {
   avatar: string;
 }
 
-const MOCK_USER: UserProfile = {
-  id: "user-1",
-  name: "Ralphie",
-  email: "ralphie@colorado.edu",
-  credits: 250,
-  notoriety: 12,
-  isVerifiedStudent: true,
+const DEFAULT_USER: UserProfile = {
+  id: "",
+  name: "Loading...",
+  email: "",
+  credits: 0,
+  notoriety: 0,
+  isVerifiedStudent: false,
 };
 
 const MOCK_LEADERBOARD: LeaderboardEntry[] = [
   { rank: 1, name: "Chip", notoriety: 89, isYou: false, avatar: "👑" },
-  { rank: 2, name: "Ralphie", notoriety: 12, isYou: true, avatar: "🧑‍🎓" },
+  { rank: 2, name: "Ralphie", notoriety: 12, isYou: false, avatar: "🧑‍🎓" },
   { rank: 3, name: "Anonymous", notoriety: 8, isYou: false, avatar: "🥷" },
   { rank: 4, name: "Alex", notoriety: 6, isYou: false, avatar: "🎒" },
   { rank: 5, name: "Jordan", notoriety: 4, isYou: false, avatar: "📚" },
@@ -77,30 +78,6 @@ const INITIAL_QUESTS: Quest[] = [
     creatorId: "user-3",
     createdAt: new Date(Date.now() - 7200000).toISOString(),
   },
-  {
-    id: "q3",
-    title: "Return Library Book",
-    description: "Need someone to return 'Intro to Algorithms' to the Norlin front desk before 5pm.",
-    bounty: 10,
-    longitude: -105.272,
-    latitude: 40.005,
-    status: "open",
-    building: "UMC",
-    creatorId: "user-4",
-    createdAt: new Date(Date.now() - 1800000).toISOString(),
-  },
-  {
-    id: "q4",
-    title: "Study Partner for Physics",
-    description: "Looking for someone to study PHYS 1120 exam material at C4C for about 2 hours.",
-    bounty: 20,
-    longitude: -105.2635,
-    latitude: 40.0043,
-    status: "open",
-    building: "C4C",
-    creatorId: "user-5",
-    createdAt: new Date(Date.now() - 900000).toISOString(),
-  },
 ];
 
 interface QuestContextType {
@@ -120,8 +97,31 @@ const QuestContext = createContext<QuestContextType | undefined>(undefined);
 
 export function QuestProvider({ children }: { children: ReactNode }) {
   const [quests, setQuests] = useState<Quest[]>(INITIAL_QUESTS);
-  const [user, setUser] = useState<UserProfile>(MOCK_USER);
+  const [user, setUser] = useState<UserProfile>(DEFAULT_USER);
   const [leaderboard] = useState<LeaderboardEntry[]>(MOCK_LEADERBOARD);
+
+  const { data: session } = authClient.useSession();
+
+  // Load user profile from backend API to ensure we have credits/notoriety
+  useEffect(() => {
+    if (session?.user?.id) {
+      fetch('/api/backend/users/me')
+        .then(res => res.json())
+        .then(data => {
+          if (data && data.id) {
+            setUser({
+              id: data.id,
+              name: data.name || session.user.name,
+              email: session.user.email,
+              credits: data.credits || 0,
+              notoriety: data.notoriety || 0,
+              isVerifiedStudent: true,
+            });
+          }
+        })
+        .catch(err => console.error("Failed to load user profile", err));
+    }
+  }, [session?.user?.id]);
 
   const addQuest = useCallback((questData: Omit<Quest, "id" | "status" | "creatorId" | "createdAt">) => {
     if (user.credits < questData.bounty) {

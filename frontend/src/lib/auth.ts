@@ -73,6 +73,17 @@ export const auth = betterAuth({
                     }
                     return { data: user };
                 },
+                after: async (user) => {
+                    // Sync the new Better Auth user into our domain `profile` table
+                    try {
+                        await pool.query(
+                            `INSERT INTO profile (id, name, email) VALUES ($1, $2, $3) ON CONFLICT (id) DO NOTHING`,
+                            [user.id, user.name, user.email]
+                        );
+                    } catch (error) {
+                        console.error("Failed to create user profile:", error);
+                    }
+                }
             },
         },
     },
