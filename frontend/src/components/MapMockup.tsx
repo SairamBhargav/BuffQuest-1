@@ -71,7 +71,7 @@ export default function MapMockup() {
     : "text-slate-500";
 
   return (
-    <div className="relative w-full h-full bg-gray-900" style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
+    <div className="relative w-full h-full bg-gray-900">
       {isTokenMissing && (
         <div className="absolute z-50 top-4 left-1/2 -translate-x-1/2 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg font-semibold flex flex-col items-center">
           <span>Mapbox Token Missing!</span>
