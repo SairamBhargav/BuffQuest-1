@@ -11,6 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.core.security import get_current_user
 from app.models.profile import Profile
 from app.schemas.profile import ProfileRead
 
@@ -22,12 +23,12 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 # ------------------------------------------------------------------
 @router.get("/me", response_model=ProfileRead)
 async def auth_me(
-    user_id: uuid.UUID,  # TODO: replace with Depends(get_current_user)
+    user_id: uuid.UUID = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Return the currently authenticated user's profile.
 
-    The Supabase JWT is validated upstream (via ``get_current_user``),
+    The Supabase JWT is validated via ``get_current_user``,
     and this endpoint simply returns the matching profile row.
     """
     result = await db.execute(select(Profile).where(Profile.id == user_id))

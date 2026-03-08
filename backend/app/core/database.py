@@ -1,5 +1,6 @@
+"""Async SQLAlchemy engine, session factory, and FastAPI dependency."""
+
 from collections.abc import AsyncGenerator
-import os
 
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
@@ -8,15 +9,7 @@ from sqlalchemy.ext.asyncio import (
 )
 from sqlalchemy.orm import DeclarativeBase
 
-
-# ================================
-# Database URL
-# ================================
-
-DATABASE_URL = os.getenv("DATABASE_URL")
-
-if not DATABASE_URL:
-    raise RuntimeError("DATABASE_URL environment variable is not set")
+from app.core.config import get_settings
 
 
 # ================================
@@ -32,7 +25,7 @@ class Base(DeclarativeBase):
 # ================================
 
 engine = create_async_engine(
-    DATABASE_URL,
+    get_settings().DATABASE_URL,
     echo=False,          # set True for debugging SQL queries
     pool_pre_ping=True,  # verifies connections before using them
 )
