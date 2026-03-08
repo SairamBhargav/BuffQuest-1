@@ -1,6 +1,7 @@
 "use client";
 
-import React, { createContext, useContext, useState, useCallback, ReactNode } from "react";
+import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect } from "react";
+import { authClient } from "@/lib/auth-client";
 
 export type QuestStatus = "open" | "claimed" | "completed" | "verified" | "cancelled";
 
@@ -35,22 +36,14 @@ export interface LeaderboardEntry {
   avatar: string;
 }
 
-const MOCK_USER: UserProfile = {
-  id: "user-1",
-  name: "Ralphie",
-  email: "ralphie@colorado.edu",
-  credits: 250,
-  notoriety: 12,
-  isVerifiedStudent: true,
+const INITIAL_USER: UserProfile = {
+  id: "",
+  name: "Loading...",
+  email: "",
+  credits: 0,
+  notoriety: 0,
+  isVerifiedStudent: false,
 };
-
-const MOCK_LEADERBOARD: LeaderboardEntry[] = [
-  { rank: 1, name: "Chip", notoriety: 89, isYou: false, avatar: "👑" },
-  { rank: 2, name: "Ralphie", notoriety: 12, isYou: true, avatar: "🧑‍🎓" },
-  { rank: 3, name: "Anonymous", notoriety: 8, isYou: false, avatar: "🥷" },
-  { rank: 4, name: "Alex", notoriety: 6, isYou: false, avatar: "🎒" },
-  { rank: 5, name: "Jordan", notoriety: 4, isYou: false, avatar: "📚" },
-];
 
 const INITIAL_QUESTS: Quest[] = [
   {
@@ -114,14 +107,67 @@ interface QuestContextType {
   cancelQuest: (id: string) => void;
   getActiveQuests: () => Quest[];
   getMyQuests: () => Quest[];
+  refreshStats: () => void;
 }
 
 const QuestContext = createContext<QuestContextType | undefined>(undefined);
 
 export function QuestProvider({ children }: { children: ReactNode }) {
   const [quests, setQuests] = useState<Quest[]>(INITIAL_QUESTS);
-  const [user, setUser] = useState<UserProfile>(MOCK_USER);
-  const [leaderboard] = useState<LeaderboardEntry[]>(MOCK_LEADERBOARD);
+  const [user, setUser] = useState<UserProfile>(INITIAL_USER);
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+
+  const { data: session } = authClient.useSession();
+
+  const refreshStats = useCallback(() => {
+    if (!session?.user) return;
+
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
+    fetch(`${apiUrl}/api/users/${session.user.id}`, { cache: "no-store", headers: { "Cache-Control": "no-cache", "Pragma": "no-cache" } })
+      .then(res => res.json())
+      .then(data => {
+        if (data && !data.detail) {
+          setUser(prev => ({
+            ...prev,
+            credits: data.credits ?? prev.credits,
+            notoriety: data.notoriety ?? prev.notoriety,
+          }));
+        }
+      })
+      .catch(console.error);
+
+    fetch(`${apiUrl}/api/leaderboard/`, { cache: "no-store", headers: { "Cache-Control": "no-cache", "Pragma": "no-cache" } })
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) {
+          const formatted: LeaderboardEntry[] = data.map((u: any, index: number) => ({
+            rank: index + 1,
+            name: u.name || (u.email ? u.email.split("@")[0] : "Unknown User"),
+            notoriety: u.notoriety,
+            isYou: session.user.id === u.id,
+            avatar: index === 0 ? "👑" : index === 1 ? "🧑‍🎓" : index === 2 ? "🥷" : index === 3 ? "🎒" : "📚",
+          }));
+          setLeaderboard(formatted);
+        }
+      })
+      .catch(console.error);
+  }, [session?.user]);
+
+  useEffect(() => {
+    if (session?.user) {
+      setUser(prev => ({
+        ...prev,
+        id: session.user.id,
+        name: session.user.name,
+        email: session.user.email,
+        isVerifiedStudent: session.user.email.endsWith("@colorado.edu"),
+      }));
+      refreshStats();
+    } else {
+      setUser(INITIAL_USER);
+    }
+  }, [session?.user, refreshStats]);
 
   const addQuest = useCallback((questData: Omit<Quest, "id" | "status" | "creatorId" | "createdAt">) => {
     if (user.credits < questData.bounty) {
@@ -218,6 +264,7 @@ export function QuestProvider({ children }: { children: ReactNode }) {
         cancelQuest,
         getActiveQuests,
         getMyQuests,
+        refreshStats,
       }}
     >
       {children}

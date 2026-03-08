@@ -1,9 +1,13 @@
 "use client";
 
-import React, { useState } from "react";
+export const dynamic = 'force-dynamic';
+
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { useQuests, Quest } from "@/context/QuestContext";
+import { authClient } from "@/lib/auth-client";
 import { useToast } from "@/context/ToastContext";
 import ActiveQuestChat from "@/components/ActiveQuestChat";
 
@@ -30,10 +34,23 @@ const fadeUp = {
 };
 
 export default function ProfilePage() {
-  const { quests, user, leaderboard, getActiveQuests, getMyQuests, completeQuest, cancelQuest } = useQuests();
+  const router = useRouter();
+  const { quests, user, leaderboard, getActiveQuests, getMyQuests, completeQuest, cancelQuest, refreshStats } = useQuests();
   const { addToast } = useToast();
+
+  useEffect(() => {
+    if (refreshStats) {
+      refreshStats();
+    }
+  }, [refreshStats]);
+
   const activeQuests = getActiveQuests();
   const myQuests = getMyQuests();
+
+  const handleSignOut = async () => {
+    await authClient.signOut();
+    router.push("/login");
+  };
 
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [activeChatQuest, setActiveChatQuest] = useState<Quest | null>(null);
@@ -56,7 +73,7 @@ export default function ProfilePage() {
   const displayedQuests = activeTab === "active" ? activeQuests : myQuests;
 
   return (
-    <main className="w-full min-h-[100dvh] bg-[#060a14] text-slate-100 overflow-y-auto relative" style={{ paddingTop: 'var(--sat)', paddingBottom: 'var(--sab)' }}>
+    <main className="w-full h-[100dvh] bg-[#060a14] text-slate-100 overflow-y-auto relative" style={{ paddingTop: 'var(--sat)', paddingBottom: 'var(--sab)' }}>
 
       {/* ─── Ambient Background Orbs ─── */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
@@ -84,16 +101,25 @@ export default function ProfilePage() {
               <p className="text-[11px] text-slate-500 font-semibold tracking-wide">{user.email}</p>
             </div>
           </div>
-          {user.isVerifiedStudent && (
-            <motion.span
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              transition={{ type: "spring", stiffness: 500, damping: 20, delay: 0.3 }}
-              className="bg-green-500/10 backdrop-blur-xl border border-green-500/25 text-green-400 text-[10px] font-black px-3.5 py-1.5 rounded-full uppercase tracking-widest shadow-[0_0_20px_rgba(34,197,94,0.15)]"
+          <div className="flex items-center gap-2">
+            {user.isVerifiedStudent && (
+              <motion.span
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ type: "spring", stiffness: 500, damping: 20, delay: 0.3 }}
+                className="bg-green-500/10 backdrop-blur-xl border border-green-500/25 text-green-400 text-[10px] font-black px-3.5 py-1.5 rounded-full uppercase tracking-widest shadow-[0_0_20px_rgba(34,197,94,0.15)]"
+              >
+                ✦ Verified
+              </motion.span>
+            )}
+            <motion.button 
+              onClick={handleSignOut} 
+              whileTap={{ scale: 0.95 }}
+              className="px-3.5 py-1.5 text-[10px] font-black bg-white/[0.04] text-slate-300 border border-white/[0.06] rounded-full hover:bg-white/[0.08] hover:text-white transition-all uppercase tracking-widest"
             >
-              ✦ Verified
-            </motion.span>
-          )}
+              Sign Out
+            </motion.button>
+          </div>
         </motion.div>
 
         {/* ─── Profile Content ─── */}
