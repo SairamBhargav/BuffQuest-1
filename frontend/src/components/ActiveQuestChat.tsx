@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useQuests } from "@/context/QuestContext";
 
 interface Message {
   id: string;
@@ -10,27 +11,30 @@ interface Message {
   timestamp: string;
 }
 
-interface ActiveQuestChatProps {
-  isOpen: boolean;
-  onClose: () => void;
-  questTitle: string;
-  opponentName: string;
-}
+export default function ActiveQuestChat() {
+  const { 
+    quests, 
+    isChatOpen, 
+    closeChat, 
+    activeQuestId,
+    setIsCompletionOpen,
+    setIsVerificationOpen 
+  } = useQuests();
+  const activeQuest = quests.find((q) => q.id === activeQuestId);
 
-export default function ActiveQuestChat({ isOpen, onClose, questTitle, opponentName }: ActiveQuestChatProps) {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "m1",
       sender: "other",
       text: "Hey! I can grab those notes for you. Are you on campus?",
-      timestamp: "10:42 AM"
+      timestamp: "10:42 AM",
     },
     {
       id: "m2",
       sender: "you",
       text: "Yeah I'm sitting in the UMC right now by the fountain.",
-      timestamp: "10:45 AM"
-    }
+      timestamp: "10:45 AM",
+    },
   ]);
   const [inputText, setInputText] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -40,10 +44,10 @@ export default function ActiveQuestChat({ isOpen, onClose, questTitle, opponentN
   };
 
   useEffect(() => {
-    if (isOpen) {
+    if (isChatOpen) {
       scrollToBottom();
     }
-  }, [messages, isOpen]);
+  }, [messages, isChatOpen]);
 
   const handleSend = (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,33 +57,42 @@ export default function ActiveQuestChat({ isOpen, onClose, questTitle, opponentN
       id: Date.now().toString(),
       sender: "you",
       text: inputText,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      timestamp: new Date().toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
     };
 
     setMessages([...messages, newMessage]);
     setInputText("");
-    
+
     // Auto-reply mock
     setTimeout(() => {
-      setMessages(prev => [...prev, {
-        id: Date.now().toString(),
-        sender: "other",
-        text: "Got it, I'll be there in 5 minutes! 🏃‍♂️💨",
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      }]);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now().toString(),
+          sender: "other",
+          text: "Got it, I'll be there in 5 minutes! 🏃‍♂️💨",
+          timestamp: new Date().toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
+        },
+      ]);
     }, 1500);
   };
 
   return (
     <AnimatePresence>
-      {isOpen && (
+      {isChatOpen && (
         <React.Fragment>
           {/* Backdrop */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            onClick={onClose}
+            onClick={closeChat}
             className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-md"
           />
 
@@ -94,18 +107,43 @@ export default function ActiveQuestChat({ isOpen, onClose, questTitle, opponentN
             {/* Header */}
             <div className="px-6 py-4 border-b border-white/10 flex justify-between items-center bg-white/5 rounded-t-[40px]">
               <div>
-                <h3 className="font-black text-white text-lg drop-shadow-sm">{questTitle}</h3>
-                <p className="text-sm font-bold text-slate-400 flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.8)]"></span>
-                  Chatting with <span className="text-slate-300">{opponentName}</span>
-                </p>
+              <h2 className="text-xl font-black text-white leading-tight drop-shadow-md">{activeQuest?.title || "Quest Chat"}</h2>
+              <div className="flex items-center gap-1.5">
+                <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Chatting with Hunter</span>
               </div>
-              <button
-                onClick={onClose}
-                className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-slate-300 hover:text-white transition-colors"
+            </div>
+
+            <div className="flex gap-2">
+              {/* Hunter Action: Complete */}
+              <motion.button 
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.9 }}
+                onClick={() => setIsCompletionOpen(true)}
+                className="w-10 h-10 rounded-full bg-yellow-400 text-yellow-900 flex items-center justify-center text-xl shadow-lg border border-white/20"
+                title="Mark as Complete"
+              >
+                ✅
+              </motion.button>
+
+              {/* Creator Action: Verify */}
+              <motion.button 
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.9 }}
+                onClick={() => setIsVerificationOpen(true)}
+                className="w-10 h-10 rounded-full bg-purple-500 text-white flex items-center justify-center text-xl shadow-lg border border-white/20"
+                title="Verify Proof"
+              >
+                ⭐
+              </motion.button>
+
+              <button 
+                onClick={closeChat}
+                className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white/50 hover:text-white transition-colors"
               >
                 ✕
               </button>
+            </div>
             </div>
 
             {/* Message Feed */}
@@ -117,7 +155,9 @@ export default function ActiveQuestChat({ isOpen, onClose, questTitle, opponentN
                     initial={{ opacity: 0, y: 10, scale: 0.95 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     key={msg.id}
-                    className={`flex flex-col ${isYou ? "items-end" : "items-start"}`}
+                    className={`flex flex-col ${
+                      isYou ? "items-end" : "items-start"
+                    }`}
                   >
                     <div
                       className={`max-w-[80%] px-5 py-3 rounded-2xl shadow-lg ${
@@ -138,8 +178,14 @@ export default function ActiveQuestChat({ isOpen, onClose, questTitle, opponentN
             </div>
 
             {/* Input Area */}
-            <div className="p-4 sm:p-6 border-t border-white/10 bg-black/20" style={{ paddingBottom: 'calc(var(--sab) + 1.5rem)' }}>
-              <form onSubmit={handleSend} className="relative flex items-center">
+            <div
+              className="p-4 sm:p-6 border-t border-white/10 bg-black/20"
+              style={{ paddingBottom: "calc(var(--sab) + 1.5rem)" }}
+            >
+              <form
+                onSubmit={handleSend}
+                className="relative flex items-center"
+              >
                 <input
                   type="text"
                   value={inputText}

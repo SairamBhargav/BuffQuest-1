@@ -36,6 +36,7 @@ export const viewport: Viewport = {
 };
 
 import { Providers } from "./Providers";
+import BottomNav from "@/components/BottomNav";
 
 export default function RootLayout({
   children,
@@ -50,6 +51,7 @@ export default function RootLayout({
       >
         <Providers>
           {children}
+          <BottomNav />
         </Providers>
       </body>
     </html>

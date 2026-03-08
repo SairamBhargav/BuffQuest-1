@@ -11,7 +11,9 @@ class QuestCreate(BaseModel):
 
     title: str = Field(..., min_length=5, max_length=120)
     description: str = Field(..., min_length=10, max_length=2000)
-    building_zone_id: int
+    building_zone_id: int | None = None
+    latitude: float | None = None
+    longitude: float | None = None
     cost_credits: int = Field(default=0, ge=0)
     reward_credits: int = Field(default=0, ge=0)
     reward_notoriety: int = Field(default=0, ge=0)
@@ -35,7 +37,9 @@ class QuestRead(BaseModel):
     hunter_id: uuid.UUID | None = None
     title: str
     description: str
-    building_zone_id: int
+    building_zone_id: int | None = None
+    latitude: float | None = None
+    longitude: float | None = None
     cost_credits: int
     reward_credits: int
     reward_notoriety: int

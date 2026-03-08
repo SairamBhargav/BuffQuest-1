@@ -46,14 +46,34 @@ const INITIAL_QUESTS: Quest[] = [
 
 interface QuestContextType {
   quests: Quest[];
+  activeQuestId: string | null;
+  isChatOpen: boolean;
+  addQuest: (quest: Quest) => void;
   claimQuest: (id: string) => void;
   completeQuest: (id: string) => void;
+  openChat: (questId: string) => void;
+  closeChat: () => void;
+  isCompletionOpen: boolean;
+  setIsCompletionOpen: (open: boolean) => void;
+  isVerificationOpen: boolean;
+  setIsVerificationOpen: (open: boolean) => void;
+  isCheckInOpen: boolean;
+  setIsCheckInOpen: (open: boolean) => void;
 }
 
 const QuestContext = createContext<QuestContextType | undefined>(undefined);
 
 export function QuestProvider({ children }: { children: ReactNode }) {
   const [quests, setQuests] = useState<Quest[]>(INITIAL_QUESTS);
+  const [activeQuestId, setActiveQuestId] = useState<string | null>(null);
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [isCompletionOpen, setIsCompletionOpen] = useState(false);
+  const [isVerificationOpen, setIsVerificationOpen] = useState(false);
+  const [isCheckInOpen, setIsCheckInOpen] = useState(false);
+
+  const addQuest = (quest: Quest) => {
+    setQuests((prev) => [...prev, quest]);
+  };
 
   const claimQuest = (id: string) => {
     setQuests((prev) =>
@@ -67,8 +87,34 @@ export function QuestProvider({ children }: { children: ReactNode }) {
     );
   };
 
+  const openChat = (id: string) => {
+    setActiveQuestId(id);
+    setIsChatOpen(true);
+  };
+
+  const closeChat = () => {
+    setIsChatOpen(false);
+  };
+
   return (
-    <QuestContext.Provider value={{ quests, claimQuest, completeQuest }}>
+    <QuestContext.Provider
+      value={{
+        quests,
+        activeQuestId,
+        isChatOpen,
+        addQuest,
+        claimQuest,
+        completeQuest,
+        openChat,
+        closeChat,
+        isCompletionOpen,
+        setIsCompletionOpen,
+        isVerificationOpen,
+        setIsVerificationOpen,
+        isCheckInOpen,
+        setIsCheckInOpen,
+      }}
+    >
       {children}
     </QuestContext.Provider>
   );

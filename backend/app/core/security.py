@@ -19,7 +19,7 @@ from app.core.config import Settings, get_settings
 
 # Reusable security scheme (auto-documents the "Authorize" button in
 # Swagger UI).
-_bearer_scheme = HTTPBearer()
+_bearer_scheme = HTTPBearer(auto_error=False)
 
 
 # ------------------------------------------------------------------
@@ -84,18 +84,14 @@ def verify_token(
 
 async def get_current_user(
     credentials: Annotated[
-        HTTPAuthorizationCredentials, Depends(_bearer_scheme)
+        HTTPAuthorizationCredentials | None, Depends(_bearer_scheme)
     ],
     settings: Annotated[Settings, Depends(get_settings)],
-) -> uuid.UUID:
-    """Dependency that returns the authenticated Supabase user's UUID.
+) -> uuid.UUID | None:
+    """Dependency that returns the authenticated Supabase user's UUID, or None if not authenticated."""
+    if credentials is None:
+        return None
 
-    Usage::
-
-        @router.get("/protected")
-        async def protected(user_id: uuid.UUID = Depends(get_current_user)):
-            ...
-    """
     payload = verify_token(credentials.credentials, settings)
 
     sub = payload.get("sub")

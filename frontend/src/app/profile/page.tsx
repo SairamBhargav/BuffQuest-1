@@ -4,19 +4,9 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { useQuests, Quest } from "@/context/QuestContext";
-import ActiveQuestChat from "@/components/ActiveQuestChat";
-
 export default function ProfilePage() {
-  const { quests, completeQuest } = useQuests();
+  const { quests, completeQuest, openChat } = useQuests();
   const activeQuests = quests.filter((q) => q.status === "claimed");
-
-  const [isChatOpen, setIsChatOpen] = useState(false);
-  const [activeChatQuest, setActiveChatQuest] = useState<Quest | null>(null);
-
-  const openChat = (quest: Quest) => {
-    setActiveChatQuest(quest);
-    setIsChatOpen(true);
-  };
 
   return (
     <main className="w-full min-h-[100dvh] bg-[#0a0f1a] text-slate-100 overflow-y-auto pb-10" style={{ paddingTop: 'var(--sat)', paddingBottom: 'var(--sab)' }}>
@@ -85,7 +75,7 @@ export default function ProfilePage() {
                        <span>📍</span> {quest.building}
                      </p>
                      <div className="flex gap-3">
-                       <motion.button onClick={() => openChat(quest)} whileTap={{ scale: 0.9 }} className="flex-1 bg-white/10 hover:bg-white/20 text-white text-sm font-black py-3 rounded-[24px] transition-colors border border-white/10 uppercase tracking-wider">Chat</motion.button>
+                       <motion.button onClick={() => openChat(quest.id)} whileTap={{ scale: 0.9 }} className="flex-1 bg-white/10 hover:bg-white/20 text-white text-sm font-black py-3 rounded-[24px] transition-colors border border-white/10 uppercase tracking-wider">Chat</motion.button>
                        <motion.button onClick={() => completeQuest(quest.id)} whileTap={{ scale: 0.9 }} className="flex-1 squishy-btn text-yellow-900 text-sm font-black py-3 rounded-[24px] uppercase tracking-wider">Complete</motion.button>
                      </div>
                    </motion.div>
@@ -121,13 +111,6 @@ export default function ProfilePage() {
 
         </div>
       </div>
-
-      <ActiveQuestChat
-        isOpen={isChatOpen}
-        onClose={() => setIsChatOpen(false)}
-        questTitle={activeChatQuest?.title || "Quest Chat"}
-        opponentName="Chip"
-      />
     </main>
   );
 }

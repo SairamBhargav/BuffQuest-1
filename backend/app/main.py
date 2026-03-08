@@ -13,6 +13,7 @@ from app.api.routes import (
     quests,
     users,
 )
+from app import models
 
 app = FastAPI(title="BuffQuest API", version="0.1.0")
 

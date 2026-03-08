@@ -47,11 +47,12 @@ class Quest(Base):
     )
     title: Mapped[str] = mapped_column(Text, nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False)
-    building_zone_id: Mapped[int] = mapped_column(
+    building_zone_id: Mapped[int | None] = mapped_column(
         BigInteger,
         ForeignKey("public.building_zones.id", ondelete="RESTRICT"),
-        nullable=False,
     )
+    latitude: Mapped[float | None] = mapped_column(nullable=True)
+    longitude: Mapped[float | None] = mapped_column(nullable=True)
     cost_credits: Mapped[int] = mapped_column(
         Integer, nullable=False, default=0
     )
