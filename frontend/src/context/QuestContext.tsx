@@ -1,6 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from "react";
+import { authClient } from "@/lib/auth-client";
 
 export type QuestStatus = "open" | "claimed" | "completed" | "verified" | "cancelled" | "rewarded";
 
@@ -63,11 +64,6 @@ interface QuestContextType {
 const QuestContext = createContext<QuestContextType | undefined>(undefined);
 
 const getApiBase = () => {
-  const configuredBase = process.env.NEXT_PUBLIC_API_BASE_URL?.trim();
-  if (configuredBase) {
-    return configuredBase.replace(/\/$/, "");
-  }
-
   return "/api/backend";
 };
 
@@ -97,6 +93,8 @@ export function QuestProvider({ children }: { children: ReactNode }) {
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const apiBase = getApiBase();
+
+  const { data: session, isPending: isSessionLoading } = authClient.useSession();
 
   const readJson = useCallback(async (response: Response) => {
     const contentType = response.headers.get("content-type") || "";
@@ -171,8 +169,10 @@ export function QuestProvider({ children }: { children: ReactNode }) {
   }, [apiBase, readJson]);
 
   useEffect(() => {
-    refreshData();
-  }, [refreshData]);
+    if (!isSessionLoading) {
+      refreshData();
+    }
+  }, [refreshData, isSessionLoading, session]);
 
   const addQuest = useCallback(async (questData: any) => {
     if (!user) return { success: false, error: "Please log in first." };

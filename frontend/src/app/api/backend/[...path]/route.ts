@@ -1,77 +1,67 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const BACKEND_API_BASE = (
-  process.env.BACKEND_API_URL?.trim() || "http://127.0.0.1:8001/api"
-).replace(/\/$/, "");
-
-function buildBackendUrl(pathSegments: string[], search: string) {
-  const joinedPath = pathSegments.join("/");
-  return `${BACKEND_API_BASE}/${joinedPath}${search}`;
+export async function GET(request: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
+  const { path } = await params;
+  return proxyRequest(request, path);
 }
 
-async function proxyRequest(
-  request: NextRequest,
-  context: { params: Promise<{ path: string[] }> },
-) {
-  const { path } = await context.params;
-  const targetUrl = buildBackendUrl(path, request.nextUrl.search);
+export async function POST(request: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
+  const { path } = await params;
+  return proxyRequest(request, path);
+}
 
-  const headers = new Headers();
-  const cookieHeader = request.headers.get("cookie");
-  const authorizationHeader = request.headers.get("authorization");
-  const contentTypeHeader = request.headers.get("content-type");
-  const acceptHeader = request.headers.get("accept");
+export async function PATCH(request: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
+  const { path } = await params;
+  return proxyRequest(request, path);
+}
 
-  if (cookieHeader) {
-    headers.set("cookie", cookieHeader);
-  }
-  if (authorizationHeader) {
-    headers.set("authorization", authorizationHeader);
-  }
-  if (contentTypeHeader) {
-    headers.set("content-type", contentTypeHeader);
-  }
-  if (acceptHeader) {
-    headers.set("accept", acceptHeader);
-  }
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
+  const { path } = await params;
+  return proxyRequest(request, path);
+}
 
-  const init: RequestInit = {
-    method: request.method,
-    headers,
-    cache: "no-store",
-  };
+async function proxyRequest(request: NextRequest, path: string[]) {
+  const backendBaseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+  const targetPath = path.join("/");
+  const queryString = request.nextUrl.search;
+  
+  // If the path is 'health', call root /health, otherwise call /api/...
+  const url = targetPath === "health" 
+    ? `${backendBaseUrl}/health${queryString}` 
+    : `${backendBaseUrl}/api/${targetPath}${queryString}`;
 
-  if (request.method !== "GET" && request.method !== "HEAD") {
-    init.body = await request.text();
-  }
+  const headers = new Headers(request.headers);
+  // Important: Remove host so fetch sets it correctly for the backend
+  headers.delete("host");
 
   try {
-    const response = await fetch(targetUrl, init);
+    const body = request.method !== "GET" && request.method !== "HEAD" 
+      ? await request.arrayBuffer() 
+      : undefined;
+
+    const response = await fetch(url, {
+      method: request.method,
+      headers: headers,
+      body: body,
+      cache: "no-store",
+    });
+
+    const responseData = await response.arrayBuffer();
+    
     const responseHeaders = new Headers();
-    const responseContentType = response.headers.get("content-type");
+    response.headers.forEach((value, key) => {
+      // Don't forward transfer-encoding, content-encoding as Next handles those
+      if (!["transfer-encoding", "content-encoding", "content-length"].includes(key.toLowerCase())) {
+        responseHeaders.set(key, value);
+      }
+    });
 
-    if (responseContentType) {
-      responseHeaders.set("content-type", responseContentType);
-    }
-
-    return new NextResponse(await response.arrayBuffer(), {
+    return new NextResponse(responseData, {
       status: response.status,
       headers: responseHeaders,
     });
   } catch (error) {
-    return NextResponse.json(
-      {
-        detail: "Backend API proxy request failed",
-        error: error instanceof Error ? error.message : "Unknown error",
-      },
-      { status: 502 },
-    );
+    console.error("Proxy error:", error);
+    return NextResponse.json({ detail: "Backend proxy error" }, { status: 502 });
   }
 }
-
-export const GET = proxyRequest;
-export const POST = proxyRequest;
-export const PATCH = proxyRequest;
-export const PUT = proxyRequest;
-export const DELETE = proxyRequest;
-export const OPTIONS = proxyRequest;

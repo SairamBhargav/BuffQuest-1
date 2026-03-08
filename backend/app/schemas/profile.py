@@ -15,7 +15,7 @@ class ProfileRead(BaseModel):
     credits: int
     notoriety: int
     email_verified: bool | None = None
-    is_verified_student: bool
+    is_verified_student: bool | None = None
     image: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
