@@ -26,7 +26,6 @@ export default function ForgotPasswordPage() {
     try {
       const { error } = await authClient.requestPasswordReset({
         email,
-        type: 'forget-password',
       })
 
       if (error) {
