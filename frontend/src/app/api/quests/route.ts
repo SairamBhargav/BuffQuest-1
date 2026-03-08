@@ -55,7 +55,7 @@ Return ONLY valid JSON in this exact format:
       }
     });
 
-    const resultText = response.text || "{}";
+    const resultText = (response.text as string) || "{}";
     const decision = JSON.parse(resultText);
 
     if (decision.is_approved !== true) {
@@ -92,7 +92,7 @@ Return ONLY valid JSON in this exact format:
 
     return NextResponse.json({ success: true, quest: data }, { status: 201 });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("DEBUG API ERROR:", error);
     return NextResponse.json(
       { error: "Internal server error processing quest." },
