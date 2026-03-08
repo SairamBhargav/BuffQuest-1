@@ -1,10 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { authClient } from '@/lib/auth-client'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 
 export default function RegisterPage() {
   const [email, setEmail] = useState('')
@@ -13,7 +13,59 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
+  const [registered, setRegistered] = useState(false)
+  const [resendCooldown, setResendCooldown] = useState(0)
+  const [resending, setResending] = useState(false)
   const router = useRouter()
+
+  // Listen for cross-tab verification success
+  useEffect(() => {
+    try {
+      const channel = new BroadcastChannel('buffquest-email-verified')
+      channel.onmessage = (event) => {
+        if (event.data?.verified) {
+          setError('')
+          setMessage('Email verified! Redirecting...')
+          setTimeout(() => router.push('/map'), 2000)
+        }
+      }
+      return () => channel.close()
+    } catch {
+      // BroadcastChannel not supported
+    }
+  }, [router])
+
+  // Countdown timer for resend cooldown
+  useEffect(() => {
+    if (resendCooldown <= 0) return
+    const timer = setTimeout(() => setResendCooldown(resendCooldown - 1), 1000)
+    return () => clearTimeout(timer)
+  }, [resendCooldown])
+
+  const handleResendVerification = useCallback(async () => {
+    if (resendCooldown > 0 || resending || !email) return
+    setResending(true)
+    setError('')
+    setMessage('')
+
+    try {
+      const { error } = await authClient.sendVerificationEmail({
+        email,
+        callbackURL: '/verify-email',
+      })
+
+      if (error) {
+        setError(error.message || 'Failed to resend verification email.')
+      } else {
+        setMessage('Verification email sent! Check your inbox.')
+        setResendCooldown(30)
+      }
+    } catch {
+      setError('Failed to resend verification email. Please try again.')
+    } finally {
+      setResending(false)
+    }
+  }, [email, resendCooldown, resending])
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -44,19 +96,20 @@ export default function RegisterPage() {
         email,
         password,
         name: email.split('@')[0],
+        callbackURL: '/verify-email',
       })
 
       if (error) {
         setError(error.message || 'Registration failed')
       } else {
+        setRegistered(true)
         setMessage('Registration successful! Please check your email to verify your account.')
+        setResendCooldown(30)
       }
-    } catch (err) {
+    } catch {
       setError('An unexpected error occurred. Please try again.')
     } finally {
-      if (!message) {
-        setLoading(false)
-      }
+      setLoading(false)
     }
   }
 
@@ -92,7 +145,8 @@ export default function RegisterPage() {
               type="email"
               autoComplete="email"
               required
-              className="w-full bg-black/40 border border-white/10 rounded-2xl px-4 py-3.5 text-white placeholder:text-white/30 focus:outline-none focus:border-yellow-400/50 focus:ring-1 focus:ring-yellow-400/50 transition-all font-medium"
+              disabled={registered}
+              className="w-full bg-black/40 border border-white/10 rounded-2xl px-4 py-3.5 text-white placeholder:text-white/30 focus:outline-none focus:border-yellow-400/50 focus:ring-1 focus:ring-yellow-400/50 transition-all font-medium disabled:opacity-50"
               placeholder="ralphie@colorado.edu"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -106,7 +160,8 @@ export default function RegisterPage() {
               type="password"
               autoComplete="new-password"
               required
-              className="w-full bg-black/40 border border-white/10 rounded-2xl px-4 py-3.5 text-white placeholder:text-white/30 focus:outline-none focus:border-yellow-400/50 focus:ring-1 focus:ring-yellow-400/50 transition-all font-medium"
+              disabled={registered}
+              className="w-full bg-black/40 border border-white/10 rounded-2xl px-4 py-3.5 text-white placeholder:text-white/30 focus:outline-none focus:border-yellow-400/50 focus:ring-1 focus:ring-yellow-400/50 transition-all font-medium disabled:opacity-50"
               placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -120,7 +175,8 @@ export default function RegisterPage() {
               type="password"
               autoComplete="new-password"
               required
-              className="w-full bg-black/40 border border-white/10 rounded-2xl px-4 py-3.5 text-white placeholder:text-white/30 focus:outline-none focus:border-yellow-400/50 focus:ring-1 focus:ring-yellow-400/50 transition-all font-medium"
+              disabled={registered}
+              className="w-full bg-black/40 border border-white/10 rounded-2xl px-4 py-3.5 text-white placeholder:text-white/30 focus:outline-none focus:border-yellow-400/50 focus:ring-1 focus:ring-yellow-400/50 transition-all font-medium disabled:opacity-50"
               placeholder="••••••••"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
@@ -133,44 +189,86 @@ export default function RegisterPage() {
             </Link>
           </div>
 
-          <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.95 }}
-            type="submit"
-            disabled={loading}
-            className="w-full squishy-btn text-yellow-900 font-black py-4 rounded-[28px] uppercase tracking-widest text-base border-2 border-white/60 shadow-xl disabled:opacity-60 disabled:pointer-events-none"
-          >
-            {loading ? (
-              <span className="flex items-center justify-center gap-2">
-                <span className="w-4 h-4 border-2 border-yellow-900/30 border-t-yellow-900 rounded-full animate-spin" />
-                Creating account...
-              </span>
-            ) : (
-              'Create Account'
-            )}
-          </motion.button>
+          {!registered && (
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.95 }}
+              type="submit"
+              disabled={loading}
+              className="w-full squishy-btn text-yellow-900 font-black py-4 rounded-[28px] uppercase tracking-widest text-base border-2 border-white/60 shadow-xl disabled:opacity-60 disabled:pointer-events-none"
+            >
+              {loading ? (
+                <span className="flex items-center justify-center gap-2">
+                  <span className="w-4 h-4 border-2 border-yellow-900/30 border-t-yellow-900 rounded-full animate-spin" />
+                  Creating account...
+                </span>
+              ) : (
+                'Create Account'
+              )}
+            </motion.button>
+          )}
         </form>
 
-        {message && (
-          <motion.div
-            initial={{ opacity: 0, y: -5 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="liquid-glass-gold rounded-2xl px-5 py-3 text-center text-sm font-bold text-yellow-300"
-          >
-            {message}
-          </motion.div>
-        )}
+        {/* Messages */}
+        <AnimatePresence mode="wait">
+          {message && (
+            <motion.div
+              key="message"
+              initial={{ opacity: 0, y: -5 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -5 }}
+              className="liquid-glass-gold rounded-2xl px-5 py-3 text-center text-sm font-bold text-yellow-300"
+            >
+              {message}
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-        {error && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ type: "spring", stiffness: 500, damping: 25 }}
-            className="liquid-glass-red rounded-2xl px-5 py-3 text-center text-sm font-bold text-red-300"
-          >
-            {error}
-          </motion.div>
-        )}
+        {/* Resend Verification Button */}
+        <AnimatePresence>
+          {registered && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="space-y-2"
+            >
+              <motion.button
+                whileHover={resendCooldown <= 0 ? { scale: 1.02 } : {}}
+                whileTap={resendCooldown <= 0 ? { scale: 0.95 } : {}}
+                onClick={handleResendVerification}
+                disabled={resendCooldown > 0 || resending}
+                className="w-full bg-white/10 hover:bg-white/15 border border-white/20 text-white font-bold py-3 rounded-2xl uppercase tracking-widest text-xs transition-all disabled:opacity-50 disabled:pointer-events-none"
+              >
+                {resending ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Sending...
+                  </span>
+                ) : resendCooldown > 0 ? (
+                  `Resend in ${resendCooldown}s`
+                ) : (
+                  '📧 Resend Verification Email'
+                )}
+              </motion.button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {error && (
+            <motion.div
+              key="error"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ type: "spring", stiffness: 500, damping: 25 }}
+              className="liquid-glass-red rounded-2xl px-5 py-3 text-center text-sm font-bold text-red-300"
+            >
+              {error}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </motion.div>
     </div>
   )
