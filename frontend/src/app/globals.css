@@ -75,3 +75,17 @@ body {
 .mapboxgl-ctrl-attrib a {
   color: rgba(255, 255, 255, 0.6) !important;
 }
+
+/* Strip default Mapbox popup styling */
+.mapboxgl-popup-content {
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+}
+.mapboxgl-popup-tip {
+  display: none !important;
+}
+.mapboxgl-popup-close-button {
+  display: none !important;
+}
