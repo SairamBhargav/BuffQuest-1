@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import Settings, get_settings
 from app.core.database import get_db
 from app.core.security import get_current_user
 from app.models.building_zone import BuildingZone
@@ -39,6 +40,7 @@ async def list_quests(
     stmt = (
         select(Quest, BuildingZone.name.label("building_name"), BuildingZone.latitude, BuildingZone.longitude)
         .join(BuildingZone, Quest.building_zone_id == BuildingZone.id)
+        .where(Quest.moderation_status == ModerationStatus.approved)
     )
     if building_zone_id is not None:
         stmt = stmt.where(Quest.building_zone_id == building_zone_id)
@@ -72,6 +74,7 @@ async def get_quest(
         select(Quest, BuildingZone.name.label("building_name"), BuildingZone.latitude, BuildingZone.longitude)
         .join(BuildingZone, Quest.building_zone_id == BuildingZone.id)
         .where(Quest.id == quest_id)
+        .where(Quest.moderation_status == ModerationStatus.approved)
     )
     result = await db.execute(stmt)
     row = result.first()
@@ -94,9 +97,10 @@ async def create_quest(
     payload: QuestCreate,
     user_id: str = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
+    settings: Settings = Depends(get_settings),
 ):
     """Create a new quest (deducts cost_credits from creator)."""
-    quest = await create_quest_service(db, user_id, payload)
+    quest = await create_quest_service(db, user_id, payload, settings)
     
     await db.commit()
     await db.refresh(quest)

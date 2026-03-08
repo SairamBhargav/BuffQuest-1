@@ -1,15 +1,47 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import Map, { Marker, Popup } from "react-map-gl/mapbox";
+import Map, { Marker, Popup, type MapRef } from "react-map-gl/mapbox";
 import Link from "next/link";
 import CreateQuestModal from "./CreateQuestModal";
 import ActiveQuestChat from "./ActiveQuestChat";
 import AttendanceDrawer from "./AttendanceDrawer";
+import DemoControlPanel from "./DemoControlPanel";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { useQuests, Quest } from "@/context/QuestContext";
 import { useToast } from "@/context/ToastContext";
+import GeneratedAvatar from "./GeneratedAvatar";
+import {
+  DEMO_LOCATION_PRESETS,
+  buildDemoChatSeed,
+  createDemoQuest,
+  createDemoReply,
+  type DemoChatMessage,
+} from "@/lib/demoScenario";
+
+function hasGeolocationSupport() {
+  return typeof navigator !== "undefined" && "geolocation" in navigator;
+}
+
+function getStoredDemoMode() {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  return window.localStorage.getItem("buffquest-demo-mode") === "1";
+}
+
+function getStoredDemoLocationId() {
+  if (typeof window === "undefined") {
+    return DEMO_LOCATION_PRESETS[0].id;
+  }
+
+  const storedLocation = window.localStorage.getItem("buffquest-demo-location");
+  return DEMO_LOCATION_PRESETS.some((preset) => preset.id === storedLocation)
+    ? storedLocation || DEMO_LOCATION_PRESETS[0].id
+    : DEMO_LOCATION_PRESETS[0].id;
+}
 
 const CU_BOULDER_COORDS = {
   longitude: -105.2705,
@@ -29,13 +61,39 @@ export default function MapMockup() {
   const [selectedQuest, setSelectedQuest] = useState<Quest | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isAttendanceOpen, setIsAttendanceOpen] = useState(false);
+  const [liveLocation, setLiveLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [locationError, setLocationError] = useState<string | null>(hasGeolocationSupport() ? null : "Location unavailable");
+  const [isLocating, setIsLocating] = useState(hasGeolocationSupport());
 
   // Active quest chat state
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [activeChatQuest, setActiveChatQuest] = useState<Quest | null>(null);
   const [chatRole, setChatRole] = useState<"creator" | "hunter">("hunter");
+  const [demoMode, setDemoMode] = useState(getStoredDemoMode);
+  const [demoLocationId, setDemoLocationId] = useState(getStoredDemoLocationId);
+  const [demoQuest, setDemoQuest] = useState<Quest | null>(() => {
+    if (!getStoredDemoMode()) {
+      return null;
+    }
 
+    const preset = DEMO_LOCATION_PRESETS.find((item) => item.id === getStoredDemoLocationId()) || DEMO_LOCATION_PRESETS[0];
+    return createDemoQuest(preset);
+  });
+  const [demoMessages, setDemoMessages] = useState<DemoChatMessage[]>([]);
+  const [demoTypingText, setDemoTypingText] = useState<string | null>(null);
+  const [isAutoDemoRunning, setIsAutoDemoRunning] = useState(false);
+  const [demoCelebrateToken, setDemoCelebrateToken] = useState(0);
+  const demoTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const didInitRef = useRef(false);
+
+  const selectedDemoLocation = DEMO_LOCATION_PRESETS.find((preset) => preset.id === demoLocationId) || DEMO_LOCATION_PRESETS[0];
   const activeQuests = getActiveQuests();
+  const effectiveLocation = useMemo(
+    () => (demoMode
+      ? { latitude: selectedDemoLocation.latitude, longitude: selectedDemoLocation.longitude }
+      : liveLocation),
+    [demoMode, liveLocation, selectedDemoLocation.latitude, selectedDemoLocation.longitude]
+  );
 
   const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
   const isTokenMissing = !token || token === "YOUR_MAPBOX_TOKEN_HERE";
@@ -49,7 +107,189 @@ export default function MapMockup() {
   };
 
   const lightPreset = getLightPreset();
-  const mapRef = React.useRef<any>(null);
+  const mapRef = useRef<MapRef | null>(null);
+
+  const clearDemoTimers = useCallback(() => {
+    demoTimersRef.current.forEach((timer) => clearTimeout(timer));
+    demoTimersRef.current = [];
+  }, []);
+
+  const scheduleDemoStep = useCallback((delayMs: number, callback: () => void) => {
+    const timer = setTimeout(callback, delayMs);
+    demoTimersRef.current.push(timer);
+  }, []);
+
+  const appendDemoMessage = (sender: "you" | "other" | "system", text: string) => {
+    setDemoMessages((current) => [
+      ...current,
+      {
+        id: `demo-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        sender,
+        text,
+        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      },
+    ]);
+  };
+
+  const recenterToDemoLocation = useCallback((location = selectedDemoLocation, zoom = 16.6) => {
+    if (!mapRef.current) {
+      return;
+    }
+
+    mapRef.current.flyTo({
+      center: [location.longitude, location.latitude],
+      zoom,
+      duration: 900,
+      essential: true,
+    });
+  }, [selectedDemoLocation]);
+
+  const resetDemoScenario = useCallback((locationId = demoLocationId) => {
+    clearDemoTimers();
+    const preset = DEMO_LOCATION_PRESETS.find((item) => item.id === locationId) || DEMO_LOCATION_PRESETS[0];
+    setDemoQuest(createDemoQuest(preset));
+    setDemoMessages([]);
+    setDemoTypingText(null);
+    setDemoCelebrateToken(0);
+    setIsAutoDemoRunning(false);
+    setSelectedQuest(null);
+    setIsChatOpen(false);
+    setActiveChatQuest(null);
+    setChatRole("hunter");
+  }, [clearDemoTimers, demoLocationId]);
+
+  const disableDemoMode = useCallback(() => {
+    clearDemoTimers();
+    setDemoMode(false);
+    setDemoQuest(null);
+    setDemoMessages([]);
+    setDemoTypingText(null);
+    setIsAutoDemoRunning(false);
+    setDemoCelebrateToken(0);
+    setSelectedQuest(null);
+    setActiveChatQuest(null);
+    setIsChatOpen(false);
+    setChatRole("hunter");
+  }, [clearDemoTimers]);
+
+  const claimDemoQuest = (questToClaim: Quest) => {
+    if (!user) {
+      return;
+    }
+
+    const claimedQuest = {
+      ...questToClaim,
+      status: "claimed" as const,
+      hunterId: user.id,
+      hunter_id: user.id,
+    };
+
+    setDemoQuest(claimedQuest);
+    setSelectedQuest(null);
+    setDemoMessages(buildDemoChatSeed());
+    setDemoTypingText(null);
+    setActiveChatQuest(claimedQuest);
+    setChatRole("hunter");
+    setIsChatOpen(true);
+    addToast(`Demo quest claimed: \"${questToClaim.title}\"`, "success");
+  };
+
+  const handleDemoSendMessage = (text: string) => {
+    appendDemoMessage("you", text);
+    setDemoTypingText("Creator is typing...");
+
+    scheduleDemoStep(1100, () => {
+      setDemoTypingText(null);
+      appendDemoMessage("other", createDemoReply(text));
+    });
+  };
+
+  const handleDemoComplete = () => {
+    setDemoQuest((current) => (current ? { ...current, status: "completed" } : current));
+    appendDemoMessage("system", "Hunter marked the quest complete. Creator review requested.");
+    addToast("Demo quest marked complete.", "info");
+  };
+
+  const handleDemoVerify = () => {
+    setDemoQuest((current) => (current ? { ...current, status: "verified" } : current));
+    appendDemoMessage("system", "Creator verified the delivery. Credits and notoriety awarded.");
+    setDemoCelebrateToken((current) => current + 1);
+    addToast(`+${selectedDemoLocation.bounty} credits demo payout`, "reward");
+  };
+
+  const handleDemoCancel = () => {
+    resetDemoScenario(demoLocationId);
+    addToast("Demo scenario reset.", "info");
+  };
+
+  const runAutoDemo = () => {
+    clearDemoTimers();
+    setDemoMode(true);
+    resetDemoScenario(demoLocationId);
+    setIsAutoDemoRunning(true);
+
+    const scriptedQuest = createDemoQuest(selectedDemoLocation);
+    setDemoQuest(scriptedQuest);
+
+    scheduleDemoStep(350, () => {
+      recenterToDemoLocation(selectedDemoLocation, 16.8);
+      addToast(`Demo locked to ${selectedDemoLocation.name}.`, "info");
+    });
+
+    scheduleDemoStep(1400, () => {
+      setSelectedQuest(scriptedQuest);
+      addToast("Quest discovered on the building board.", "success");
+    });
+
+    scheduleDemoStep(2800, () => {
+      claimDemoQuest(scriptedQuest);
+    });
+
+    scheduleDemoStep(4300, () => {
+      appendDemoMessage("you", "I am already in Eaton and heading to the lobby now.");
+    });
+
+    scheduleDemoStep(5600, () => {
+      setDemoTypingText("Creator is typing...");
+    });
+
+    scheduleDemoStep(7000, () => {
+      setDemoTypingText(null);
+      appendDemoMessage("other", "Perfect. I can verify this right away so the judges see the full reward loop.");
+    });
+
+    scheduleDemoStep(8600, () => {
+      handleDemoComplete();
+    });
+
+    scheduleDemoStep(10200, () => {
+      setChatRole("creator");
+      setDemoTypingText("Creator is reviewing delivery...");
+    });
+
+    scheduleDemoStep(11600, () => {
+      setDemoTypingText(null);
+      handleDemoVerify();
+    });
+
+    scheduleDemoStep(13800, () => {
+      setIsAutoDemoRunning(false);
+      addToast("Autoplay finished. You can keep exploring in demo mode.", "success");
+    });
+  };
+
+  const recenterToLiveLocation = useCallback((zoom = 16.8) => {
+    if (!mapRef.current || !effectiveLocation) {
+      return;
+    }
+
+    mapRef.current.flyTo({
+      center: [effectiveLocation.longitude, effectiveLocation.latitude],
+      zoom,
+      duration: 900,
+      essential: true,
+    });
+  }, [effectiveLocation]);
 
   const handleMarkerClick = (quest: Quest) => {
     setSelectedQuest(quest);
@@ -67,8 +307,85 @@ export default function MapMockup() {
   };
 
   useEffect(() => {
-    setIsClient(true);
-  }, []);
+    if (didInitRef.current) {
+      return;
+    }
+
+    didInitRef.current = true;
+
+    const mountTimer = setTimeout(() => {
+      setIsClient(true);
+
+      if (typeof window === "undefined") {
+        return;
+      }
+
+      const storedMode = window.localStorage.getItem("buffquest-demo-mode") === "1";
+      const storedLocation = getStoredDemoLocationId();
+
+      if (storedLocation !== demoLocationId) {
+        setDemoLocationId(storedLocation);
+      }
+
+      if (storedMode !== demoMode) {
+        setDemoMode(storedMode);
+        if (storedMode) {
+          resetDemoScenario(storedLocation);
+        }
+      }
+    }, 0);
+
+    return () => clearTimeout(mountTimer);
+  }, [demoLocationId, demoMode, resetDemoScenario]);
+
+  useEffect(() => {
+    if (!isClient || typeof window === "undefined") {
+      return;
+    }
+
+    window.localStorage.setItem("buffquest-demo-mode", demoMode ? "1" : "0");
+    window.localStorage.setItem("buffquest-demo-location", demoLocationId);
+  }, [demoLocationId, demoMode, isClient]);
+
+  useEffect(() => {
+    if (!isClient || !hasGeolocationSupport()) {
+      return;
+    }
+
+    const watchId = navigator.geolocation.watchPosition(
+      (position) => {
+        setLiveLocation({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        });
+        setLocationError(null);
+        setIsLocating(false);
+      },
+      (error) => {
+        setLocationError(error.message || "Location blocked");
+        setIsLocating(false);
+      },
+      {
+        enableHighAccuracy: true,
+        maximumAge: 10000,
+        timeout: 15000,
+      }
+    );
+
+    return () => navigator.geolocation.clearWatch(watchId);
+  }, [isClient]);
+
+  useEffect(() => {
+    if (!effectiveLocation || !mapRef.current) {
+      return;
+    }
+
+    recenterToLiveLocation(15.8);
+  }, [demoMode, effectiveLocation, recenterToLiveLocation]);
+
+  useEffect(() => {
+    return () => clearDemoTimers();
+  }, [clearDemoTimers]);
 
   if (!isClient) return null;
   if (isLoading) {
@@ -102,10 +419,29 @@ export default function MapMockup() {
   const chipLabel = isLightMap
     ? "text-white/70"
     : "text-slate-500";
+  const locationChipTone = isLightMap
+    ? "bg-emerald-400/15 text-emerald-100 border border-emerald-300/20"
+    : "bg-emerald-500/10 text-emerald-900 border border-emerald-700/10";
 
-  const openQuests = quests.filter(q => q.status === 'open');
+  const openQuests = quests.filter((q) => q.status === "open");
+  const visibleOpenQuests = demoMode && demoQuest?.status === "open"
+    ? [demoQuest, ...openQuests.filter((quest) => quest.id !== demoQuest.id)]
+    : openQuests;
+  const visibleActiveQuests = demoMode && demoQuest && (demoQuest.status === "claimed" || demoQuest.status === "completed")
+    ? [demoQuest, ...activeQuests.filter((quest) => quest.id !== demoQuest.id)]
+    : activeQuests;
+  const resolvedActiveChatQuest = activeChatQuest?.id
+    ? (demoMode && demoQuest && activeChatQuest.id === demoQuest.id
+        ? demoQuest
+        : quests.find((quest) => quest.id === activeChatQuest.id) || activeChatQuest)
+    : null;
 
   const handleClaim = async (quest: Quest) => {
+    if (demoMode && demoQuest && quest.id === demoQuest.id) {
+      claimDemoQuest(quest);
+      return;
+    }
+
     const result = await claimQuest(quest.id);
     if (!result.success) {
       addToast(result.error || "Unable to claim quest.", "error");
@@ -126,7 +462,11 @@ export default function MapMockup() {
 
   const openActiveQuestChat = (quest: Quest) => {
     setActiveChatQuest(quest);
-    setChatRole(quest.creatorId === user.id ? "creator" : "hunter");
+    if (demoMode && demoQuest && quest.id === demoQuest.id) {
+      setChatRole(chatRole);
+    } else {
+      setChatRole(quest.creatorId === user.id ? "creator" : "hunter");
+    }
     setIsChatOpen(true);
   };
 
@@ -143,7 +483,7 @@ export default function MapMockup() {
 
       {/* ─── Map Overlay Header ─── */}
       <div className="absolute z-10 top-0 left-0 w-full p-4 sm:p-6 pointer-events-none flex justify-between items-start" style={{ paddingTop: 'max(var(--sat), 1rem)' }}>
-        <div className="flex gap-2 sm:gap-4 mt-1 sm:mt-2 flex-wrap">
+        <div className="flex gap-2 sm:gap-4 mt-1 sm:mt-2 flex-wrap max-w-[70%]">
           {/* Credits Chip */}
           <motion.div 
             whileHover={{ scale: 1.05 }}
@@ -161,6 +501,19 @@ export default function MapMockup() {
           >
             <span className="tracking-tight">{user.notoriety} <span className={`text-[10px] sm:text-xs ${chipLabel} font-bold uppercase tracking-widest pl-0.5 sm:pl-1`}>Notoriety</span></span>
           </motion.div>
+
+          <motion.button
+            whileHover={effectiveLocation ? { scale: 1.04 } : undefined}
+            whileTap={effectiveLocation ? { scale: 0.96 } : undefined}
+            onClick={() => recenterToLiveLocation()}
+            disabled={!effectiveLocation}
+            className={`${glassChip} ${locationChipTone} pointer-events-auto px-3 py-2 sm:px-4 sm:py-3 rounded-[28px] font-bold flex items-center gap-2 text-xs sm:text-sm disabled:opacity-70 disabled:cursor-not-allowed`}
+          >
+            <span className={`h-2.5 w-2.5 rounded-full ${effectiveLocation ? "bg-emerald-400 orb-pulse-green" : "bg-amber-400"}`} />
+            <span className="tracking-wide uppercase">
+              {demoMode ? "Demo" : isLocating ? "Locating" : effectiveLocation ? "Live" : "Location Off"}
+            </span>
+          </motion.button>
         </div>
 
         {/* Right Side: Attendance + Profile */}
@@ -180,16 +533,62 @@ export default function MapMockup() {
           {/* Profile Avatar */}
           <Link 
             href="/profile" 
-            className={`${glassChip} pointer-events-auto h-11 w-11 sm:h-14 sm:w-14 rounded-full flex items-center justify-center text-2xl sm:text-3xl hover:scale-105 active:scale-90 transition-transform relative shrink-0`}
+            className={`${glassChip} pointer-events-auto h-11 w-11 sm:h-14 sm:w-14 rounded-full flex items-center justify-center hover:scale-105 active:scale-90 transition-transform relative shrink-0 overflow-hidden p-0.5 sm:p-1`}
           >
-            🧑‍🎓
+            <GeneratedAvatar name={user.name} size="md" className="h-full w-full border-none shadow-none" />
           </Link>
         </div>
       </div>
 
+      {(demoMode || locationError || isLocating) && (
+        <div className="absolute z-10 top-[5.75rem] left-4 sm:left-6 pointer-events-none" style={{ paddingTop: 'var(--sat)' }}>
+          <div className={`${glassChip} pointer-events-auto rounded-[24px] px-4 py-2.5 text-xs sm:text-sm font-semibold max-w-xs`}>
+            {demoMode
+              ? `Demo mode locked to ${selectedDemoLocation.name}`
+              : isLocating
+                ? "Finding your live location..."
+                : `Location notice: ${locationError}`}
+          </div>
+        </div>
+      )}
+
+      <DemoControlPanel
+        demoMode={demoMode}
+        autoDemoRunning={isAutoDemoRunning}
+        selectedLocationId={demoLocationId}
+        locations={DEMO_LOCATION_PRESETS}
+        onToggleDemo={() => {
+          if (demoMode) {
+            disableDemoMode();
+            addToast("Demo mode disabled.", "info");
+            return;
+          }
+
+          setDemoMode(true);
+          resetDemoScenario(demoLocationId);
+          recenterToDemoLocation(selectedDemoLocation);
+          addToast(`Demo mode enabled for ${selectedDemoLocation.name}.`, "success");
+        }}
+        onSelectLocation={(locationId) => {
+          setDemoLocationId(locationId);
+          const nextLocation = DEMO_LOCATION_PRESETS.find((preset) => preset.id === locationId) || DEMO_LOCATION_PRESETS[0];
+          if (demoMode && !isAutoDemoRunning) {
+            resetDemoScenario(locationId);
+          }
+          recenterToDemoLocation(nextLocation);
+        }}
+        onRunAutoDemo={runAutoDemo}
+        onStopAutoDemo={() => {
+          clearDemoTimers();
+          setIsAutoDemoRunning(false);
+          setDemoTypingText(null);
+          addToast("Autoplay stopped.", "info");
+        }}
+      />
+
       {/* ─── Active Quest Indicator (if any) ─── */}
       <AnimatePresence>
-        {activeQuests.length > 0 && !isChatOpen && (
+        {visibleActiveQuests.length > 0 && !isChatOpen && (
           <motion.div
             initial={{ y: -80, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
@@ -200,17 +599,17 @@ export default function MapMockup() {
           >
             <motion.button
               whileTap={{ scale: 0.95 }}
-              onClick={() => openActiveQuestChat(activeQuests[0])}
+              onClick={() => openActiveQuestChat(visibleActiveQuests[0])}
               className="pointer-events-auto liquid-glass-dark px-5 py-3 rounded-[28px] flex items-center gap-3 shadow-xl max-w-sm w-full"
             >
               <div className="w-3 h-3 rounded-full bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.8)] shrink-0" />
               <div className="flex-1 min-w-0 text-left">
-                <p className="text-white font-black text-sm truncate">{activeQuests[0].title}</p>
+                <p className="text-white font-black text-sm truncate">{visibleActiveQuests[0].title}</p>
                 <p className="text-slate-400 text-xs font-medium">
-                  {activeQuests[0].status === "claimed" ? "In Progress" : "Awaiting Verification"} · {activeQuests[0].bounty} 💰
+                  {visibleActiveQuests[0].status === "claimed" ? "In Progress" : "Awaiting Verification"} · {visibleActiveQuests[0].bounty} 💰
                 </p>
               </div>
-              <span className="text-yellow-400 font-black text-xs uppercase tracking-widest shrink-0">Open</span>
+              <span className="text-yellow-400 font-black text-xs uppercase tracking-widest shrink-0">Active</span>
             </motion.button>
           </motion.div>
         )}
@@ -236,11 +635,11 @@ export default function MapMockup() {
         maxZoom={20}
         logoPosition="bottom-left"
         attributionControl={true}
-        onLoad={(e: any) => {
-          const map = e.target;
+        onLoad={(event) => {
+          const map = event.target;
           try {
             map.setConfigProperty('basemap', 'lightPreset', lightPreset);
-          } catch (e) {}
+          } catch {}
           
           map.on('style.load', () => {
             map.setConfigProperty('basemap', 'lightPreset', lightPreset);
@@ -248,7 +647,7 @@ export default function MapMockup() {
         }}
       >
         {/* ─── Quest Markers ─── */}
-        {openQuests.map((quest) => (
+        {visibleOpenQuests.map((quest) => (
           <Marker
             key={quest.id}
             longitude={quest.longitude}
@@ -277,6 +676,22 @@ export default function MapMockup() {
             </div>
           </Marker>
         ))}
+
+        {effectiveLocation && (
+          <Marker
+            longitude={effectiveLocation.longitude}
+            latitude={effectiveLocation.latitude}
+            anchor="center"
+          >
+            <div className="relative flex items-center justify-center">
+              <div className="absolute h-16 w-16 rounded-full bg-cyan-400/20 blur-md" />
+              <div className="absolute h-10 w-10 rounded-full border border-cyan-200/60 bg-cyan-300/20 orb-pulse" />
+              <div className="relative rounded-full border-2 border-white/90 shadow-[0_10px_25px_rgba(34,211,238,0.35)] bg-slate-950/60 p-1.5 backdrop-blur-md">
+                <GeneratedAvatar name={user.name} size="sm" className="border-none shadow-none" />
+              </div>
+            </div>
+          </Marker>
+        )}
 
         {/* ─── Quest Popup ─── */}
         <AnimatePresence>
@@ -355,8 +770,17 @@ export default function MapMockup() {
       <ActiveQuestChat
         isOpen={isChatOpen}
         onClose={() => setIsChatOpen(false)}
-        quest={activeChatQuest}
+        quest={resolvedActiveChatQuest}
         role={chatRole}
+        demoMode={demoMode && resolvedActiveChatQuest?.id === demoQuest?.id}
+        demoMessages={demoMessages}
+        demoParticipantName="Maya R."
+        demoTypingText={demoTypingText}
+        demoCelebrateToken={demoCelebrateToken}
+        onDemoSendMessage={handleDemoSendMessage}
+        onDemoComplete={handleDemoComplete}
+        onDemoVerify={handleDemoVerify}
+        onDemoCancel={handleDemoCancel}
       />
     </div>
   );

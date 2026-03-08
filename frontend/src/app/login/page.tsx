@@ -13,7 +13,6 @@ export default function LoginPage() {
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
   const [needsVerification, setNeedsVerification] = useState(false)
-  const [emailVerified, setEmailVerified] = useState(false)
   const [resendCooldown, setResendCooldown] = useState(0)
   const [resending, setResending] = useState(false)
   const router = useRouter()
@@ -24,7 +23,6 @@ export default function LoginPage() {
       const channel = new BroadcastChannel('buffquest-email-verified')
       channel.onmessage = (event) => {
         if (event.data?.verified) {
-          setEmailVerified(true)
           setNeedsVerification(false)
           setError('')
           setMessage('Email verified! Redirecting...')

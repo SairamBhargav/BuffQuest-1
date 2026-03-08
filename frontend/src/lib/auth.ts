@@ -91,7 +91,7 @@ export const auth = betterAuth({
         sendOnSignUp: true,
         sendOnSignIn: true,
         autoSignInAfterVerification: true,
-        sendVerificationEmail: async ({ user, url }, request) => {
+        sendVerificationEmail: async ({ user, url }) => {
             // Rewrite verification URL to always use the configured base URL
             // (prevents localhost links when triggered from local dev)
             const baseURL = process.env.BETTER_AUTH_URL || '';
@@ -104,9 +104,10 @@ export const auth = betterAuth({
                     "Verify your email address for BuffQuest",
                     `<p>Please click the link below to verify your email address:</p><p><a href="${correctUrl}">Verify Email</a></p>`
                 );
-            } catch (error: any) {
-                console.error("Failed to send verification email:", error.message, error);
-                throw new APIError("BAD_REQUEST", { message: "Failed to send verification email: " + (error?.message || "Unknown error") });
+            } catch (error: unknown) {
+                const message = error instanceof Error ? error.message : "Unknown error";
+                console.error("Failed to send verification email:", message, error);
+                throw new APIError("BAD_REQUEST", { message: "Failed to send verification email: " + message });
             }
         },
     },

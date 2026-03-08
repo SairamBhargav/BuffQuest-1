@@ -24,6 +24,8 @@ def _make_quest(
     q = MagicMock(spec=Quest)
     q.id = quest_id
     q.creator_id = OTHER_USER_ID
+    q.title = "Pick up a notebook from Norlin"
+    q.description = "Grab the blue notebook from the front desk and bring it to Eaton."
     q.moderation_status = moderation_status
     q.moderation_reason = moderation_reason
     return q
@@ -34,7 +36,7 @@ def _make_quest(
 # ---------------------------------------------------------------------------
 
 async def test_review_quest_success(mock_user, mock_db, client):
-    """Reviewing a quest auto-approves it (placeholder pipeline)."""
+    """Reviewing a safe quest approves it."""
     quest = _make_quest()
 
     result_mock = MagicMock()

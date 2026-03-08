@@ -1,20 +1,17 @@
 import { NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { Pool } from 'pg';
 
-// Initialize Neon Client (deferred initialization to ensure env vars are loaded)
-let pool: Pool | null = null;
-const getPool = () => {
-  if (!pool) {
-    const connectionString = process.env.DATABASE_URL;
-    if (!connectionString) {
-      console.error("DATABASE_URL is missing");
-      return null;
-    }
-    pool = new Pool({ connectionString });
-  }
-  return pool;
-};
+interface QuestModerationRequest {
+  title?: string;
+  description?: string;
+  creatorId?: string;
+  skipDb?: boolean;
+}
+
+interface ModerationDecision {
+  is_approved?: boolean;
+  reason?: string;
+}
 
 // Initialize Gemini Client
 const getGeminiClient = () => {
@@ -28,8 +25,8 @@ const getGeminiClient = () => {
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
-    const { title, description, buildingId, rewardCredits, creatorId, skipDb } = body;
+    const body = await request.json() as QuestModerationRequest;
+    const { title, description, creatorId, skipDb } = body;
 
     // Basic Validation
     if (!title || !description || !creatorId) {
@@ -67,7 +64,7 @@ Return ONLY valid JSON in this exact format:
     // Standard contents format: pass prompt directly or as a Content object
     const result = await model.generateContent(prompt);
     const responseText = result.response.text();
-    const decision = JSON.parse(responseText || "{}");
+    const decision = JSON.parse(responseText || "{}") as ModerationDecision;
 
     if (decision.is_approved !== true) {
       return NextResponse.json(
@@ -89,12 +86,13 @@ Return ONLY valid JSON in this exact format:
       note: "Quest approved by AI. Final insertion should be handled by the FastAPI backend."
     }, { status: 201 });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const detail = error instanceof Error ? error.message : "Unknown error occurred";
     console.error("Critical API Error in /api/quests:", error);
     return NextResponse.json(
       {
         error: "Internal server error processing quest.",
-        detail: error.message || "Unknown error occurred"
+        detail,
       },
       { status: 500 }
     );

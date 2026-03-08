@@ -38,7 +38,7 @@ export default function UpdatePasswordPage() {
           router.push('/')
         }, 2000)
       }
-    } catch (err) {
+    } catch {
       setError('An unexpected error occurred. Please try again.')
     } finally {
       if (!message) {

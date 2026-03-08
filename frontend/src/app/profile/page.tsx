@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useQuests, Quest } from "@/context/QuestContext";
 import { useToast } from "@/context/ToastContext";
 import ActiveQuestChat from "@/components/ActiveQuestChat";
+import GeneratedAvatar from "@/components/GeneratedAvatar";
 
 const MEDAL_STYLES = [
   "medal-gold border-yellow-400/40",
@@ -56,9 +57,12 @@ export default function ProfilePage() {
   const completedCount = quests.filter(q => q.status === "verified" && (q.hunterId === user.id || q.creatorId === user.id)).length;
 
   const displayedQuests = activeTab === "active" ? activeQuests : myQuests;
+  const resolvedActiveChatQuest = activeChatQuest?.id
+    ? quests.find((quest) => quest.id === activeChatQuest.id) || activeChatQuest
+    : null;
 
   return (
-    <main className="w-full min-h-[100dvh] bg-[#060a14] text-slate-100 overflow-y-auto relative" style={{ paddingTop: 'var(--sat)', paddingBottom: 'var(--sab)' }}>
+    <main className="relative h-[100dvh] w-full overflow-y-auto overscroll-y-contain bg-[#060a14] text-slate-100" style={{ paddingTop: 'var(--sat)', paddingBottom: 'var(--sab)' }}>
 
       {/* ─── Ambient Background Orbs ─── */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
@@ -67,7 +71,7 @@ export default function ProfilePage() {
         <div className="absolute -bottom-24 left-1/4 w-80 h-80 bg-cyan-500/[0.05] rounded-full blur-[100px]" />
       </div>
 
-      <div className="relative z-10 w-full max-w-2xl mx-auto">
+      <div className="relative z-10 mx-auto w-full max-w-2xl min-h-full">
 
         {/* ─── Header ─── */}
         <motion.div
@@ -81,6 +85,7 @@ export default function ProfilePage() {
             <Link href="/" className="bg-white/[0.08] backdrop-blur-xl hover:bg-white/[0.15] active:scale-90 transition-all w-11 h-11 flex items-center justify-center rounded-full text-lg border border-white/[0.06]">
               ←
             </Link>
+            <GeneratedAvatar name={user.name} size="lg" className="shadow-[0_12px_28px_rgba(15,23,42,0.35)]" />
             <div>
               <h1 className="text-xl font-black tracking-tight drop-shadow-md">{user.name}&apos;s Profile</h1>
               <p className="text-[11px] text-slate-500 font-semibold tracking-wide">{user.email}</p>
@@ -324,7 +329,7 @@ export default function ProfilePage() {
       <ActiveQuestChat
         isOpen={isChatOpen}
         onClose={() => setIsChatOpen(false)}
-        quest={activeChatQuest}
+        quest={resolvedActiveChatQuest}
         role={chatRole}
       />
     </main>

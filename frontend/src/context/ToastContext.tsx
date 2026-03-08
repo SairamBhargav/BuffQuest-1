@@ -15,6 +15,15 @@ interface ToastContextType {
   addToast: (message: string, type?: ToastType) => void;
 }
 
+interface ToastDetailEntry {
+  msg?: string;
+}
+
+interface ToastObjectLike {
+  detail?: string | ToastDetailEntry[];
+  msg?: string;
+}
+
 const ToastContext = createContext<ToastContextType | undefined>(undefined);
 
 export function useToast() {
@@ -42,23 +51,24 @@ const typeIcons: Record<ToastType, string> = {
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
 
-  const addToast = useCallback((message: any, type: ToastType = "info") => {
+  const addToast = useCallback((message: unknown, type: ToastType = "info") => {
     let finalMessage = message;
 
     // Safety check: if message is an object or array (common for Pydantic/Backend errors)
     if (typeof message === "object" && message !== null) {
+      const typedMessage = message as ToastObjectLike;
       try {
         // If it's a Pydantic-style error with a 'detail' or 'msg' field
-        if (message.detail) {
-          finalMessage = Array.isArray(message.detail) 
-            ? message.detail.map((err: any) => err.msg || JSON.stringify(err)).join(", ")
-            : typeof message.detail === 'string' ? message.detail : JSON.stringify(message.detail);
-        } else if (message.msg) {
-          finalMessage = message.msg;
+        if (typedMessage.detail) {
+          finalMessage = Array.isArray(typedMessage.detail)
+            ? typedMessage.detail.map((err) => err.msg || JSON.stringify(err)).join(", ")
+            : typeof typedMessage.detail === "string" ? typedMessage.detail : JSON.stringify(typedMessage.detail);
+        } else if (typedMessage.msg) {
+          finalMessage = typedMessage.msg;
         } else {
           finalMessage = JSON.stringify(message);
         }
-      } catch (e) {
+      } catch {
         finalMessage = "An unexpected error occurred.";
       }
     }

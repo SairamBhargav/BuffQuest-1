@@ -1,6 +1,6 @@
 """Business logic for attendance checking."""
 
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 
 from fastapi import HTTPException, status
 from sqlalchemy import select, func
@@ -12,12 +12,40 @@ from app.models.reward_log import RewardLog, RewardSourceType
 from app.schemas.attendance import AttendanceSubmissionCreate
 from app.services.location_service import verify_user_in_zone
 
+
+def _looks_like_uploaded_image(value: str) -> bool:
+    normalized = value.strip().lower()
+    return normalized.startswith("data:image/") or normalized.startswith("http://") or normalized.startswith("https://")
+
+
+def _determine_attendance_status(payload: AttendanceSubmissionCreate) -> AttendanceVerificationStatus:
+    now = datetime.now(timezone.utc)
+    window_start = payload.scheduled_start_time - timedelta(hours=2)
+    window_end = payload.scheduled_start_time + timedelta(hours=3)
+
+    if not _looks_like_uploaded_image(payload.schedule_image_url):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Upload a valid schedule image before checking in.",
+        )
+
+    if not _looks_like_uploaded_image(payload.class_photo_url):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Upload a valid class photo before checking in.",
+        )
+
+    if not (window_start <= now <= window_end):
+        return AttendanceVerificationStatus.pending
+
+    return AttendanceVerificationStatus.approved
+
 async def process_attendance_checkin(
     db: AsyncSession,
     user_id: str,
     payload: AttendanceSubmissionCreate
 ) -> AttendanceSubmission:
-    """Validate geofencing, check for duplicates, and issue attendance rewards."""
+    """Validate attendance proofs, location, duplicates, and issue rewards when approved."""
     
     today = date.today()
     stmt = (
@@ -59,6 +87,8 @@ async def process_attendance_checkin(
             allowed_radius_meters=150.0
         )
 
+    verification_status = _determine_attendance_status(payload)
+
     submission = AttendanceSubmission(
         user_id=user_id,
         schedule_image_url=payload.schedule_image_url,
@@ -66,19 +96,19 @@ async def process_attendance_checkin(
         class_name=payload.class_name,
         building_zone_id=payload.building_zone_id,
         scheduled_start_time=payload.scheduled_start_time,
-        verification_status=AttendanceVerificationStatus.approved,
-        reward_issued=True,
+        verification_status=verification_status,
+        reward_issued=verification_status == AttendanceVerificationStatus.approved,
     )
     db.add(submission)
     
-    # Award credits and add reward log
-    profile.credits += 5
-    reward_log = RewardLog(
-        user_id=user_id,
-        source_type=RewardSourceType.attendance_reward,
-        credit_delta=5,
-        notoriety_delta=0
-    )
-    db.add(reward_log)
+    if verification_status == AttendanceVerificationStatus.approved:
+        profile.credits += 5
+        reward_log = RewardLog(
+            user_id=user_id,
+            source_type=RewardSourceType.attendance_reward,
+            credit_delta=5,
+            notoriety_delta=0
+        )
+        db.add(reward_log)
 
     return submission

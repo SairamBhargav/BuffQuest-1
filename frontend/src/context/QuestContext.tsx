@@ -47,11 +47,60 @@ export interface LeaderboardEntry {
   display_name?: string;
 }
 
+export interface QuestDraftInput {
+  title: string;
+  description: string;
+  bounty: number;
+  buildingId: number;
+  longitude: number;
+  latitude: number;
+  building: string;
+}
+
+type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
+
+interface BackendQuestRecord {
+  id: string | number;
+  title: string;
+  description: string;
+  reward_credits?: number;
+  bounty?: number;
+  building_name?: string;
+  building?: string;
+  creator_id?: string;
+  creatorId?: string;
+  hunter_id?: string;
+  hunterId?: string;
+  created_at?: string;
+  createdAt?: string;
+  longitude: number;
+  latitude: number;
+  status: QuestStatus;
+  cost_credits?: number;
+  reward_notoriety?: number;
+}
+
+interface BackendUserRecord {
+  id: string;
+  name?: string;
+  display_name?: string;
+  email: string;
+  credits: number;
+  notoriety: number;
+  is_verified_student?: boolean;
+  isVerifiedStudent?: boolean;
+}
+
+interface BackendErrorShape {
+  detail?: string;
+  error?: string;
+}
+
 interface QuestContextType {
   quests: Quest[];
   user: UserProfile | null;
   leaderboard: LeaderboardEntry[];
-  addQuest: (quest: any) => Promise<{ success: boolean; error?: string }>;
+  addQuest: (quest: QuestDraftInput) => Promise<{ success: boolean; error?: string }>;
   claimQuest: (id: string) => Promise<{ success: boolean; error?: string }>;
   completeQuest: (id: string) => Promise<void>;
   verifyQuest: (id: string) => Promise<void>;
@@ -68,7 +117,7 @@ const getApiBase = () => {
   return "/api/backend";
 };
 
-const fetchOpts = (method: string, body?: any) => {
+const fetchOpts = (method: string, body?: JsonValue | Record<string, unknown>) => {
   const headers: HeadersInit = {};
 
   if (body !== undefined) {
@@ -112,16 +161,16 @@ export function QuestProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const readJson = useCallback(async (response: Response) => {
+  const readJson = useCallback(async <T,>(response: Response): Promise<T | null> => {
     const contentType = response.headers.get("content-type") || "";
     if (!contentType.includes("application/json")) {
       return null;
     }
-    return response.json();
+    return response.json() as Promise<T>;
   }, []);
 
   // Normalizer functions to map Python snake_case to React camelCase if necessary
-  const normalizeQuest = (q: any): Quest => ({
+  const normalizeQuest = (q: BackendQuestRecord): Quest => ({
     ...q,
     id: String(q.id),
     bounty: q.reward_credits || q.bounty || 0,
@@ -131,7 +180,7 @@ export function QuestProvider({ children }: { children: ReactNode }) {
     createdAt: q.created_at || q.createdAt,
   });
 
-  const normalizeUser = (u: any): UserProfile => ({
+  const normalizeUser = (u: BackendUserRecord): UserProfile => ({
     ...u,
     isVerifiedStudent: u.is_verified_student || u.isVerifiedStudent || false,
     name: u.display_name || u.name || "Anonymous Buff",
@@ -155,7 +204,7 @@ export function QuestProvider({ children }: { children: ReactNode }) {
 
       if (userResult && userResult.status === "fulfilled") {
         if (userResult.value.ok) {
-          const userData = await readJson(userResult.value);
+          const userData = await readJson<BackendUserRecord>(userResult.value);
           if (userData && typeof userData === "object" && userData.id) {
             setUser(normalizeUser(userData));
           } else {
@@ -176,14 +225,14 @@ export function QuestProvider({ children }: { children: ReactNode }) {
       }
 
       if (questsResult.status === "fulfilled" && questsResult.value.ok) {
-        const questsData = await readJson(questsResult.value);
+        const questsData = await readJson<BackendQuestRecord[]>(questsResult.value);
         setQuests(Array.isArray(questsData) ? questsData.map(normalizeQuest) : []);
       } else if (questsResult.status === "rejected") {
         console.error("Failed to fetch quests", questsResult.reason);
       }
 
       if (leaderboardResult.status === "fulfilled" && leaderboardResult.value.ok) {
-        const leaderboardData = await readJson(leaderboardResult.value);
+        const leaderboardData = await readJson<LeaderboardEntry[]>(leaderboardResult.value);
         setLeaderboard(Array.isArray(leaderboardData) ? leaderboardData : []);
       } else {
         setLeaderboard([
@@ -192,8 +241,8 @@ export function QuestProvider({ children }: { children: ReactNode }) {
           { id: "alex-id", rank: 3, name: "Alex", notoriety: 6, isYou: false, avatar: "🎒" }
         ]);
       }
-    } catch (e) {
-      console.error("Network error fetching initial QuestContext data", e);
+    } catch (error) {
+      console.error("Network error fetching initial QuestContext data", error);
     } finally {
       setIsLoading(false);
     }
@@ -205,7 +254,19 @@ export function QuestProvider({ children }: { children: ReactNode }) {
     }
   }, [refreshData, isSessionLoading, session]);
 
-  const addQuest = useCallback(async (questData: any) => {
+  useEffect(() => {
+    if (isSessionLoading) {
+      return;
+    }
+
+    const intervalId = setInterval(() => {
+      void refreshData();
+    }, 12000);
+
+    return () => clearInterval(intervalId);
+  }, [isSessionLoading, refreshData]);
+
+  const addQuest = useCallback(async (questData: QuestDraftInput) => {
     if (!user) return { success: false, error: "Please log in first." };
     if (user.credits < questData.bounty) {
       return { success: false, error: "Not enough credits to post this quest." };
@@ -226,7 +287,7 @@ export function QuestProvider({ children }: { children: ReactNode }) {
         }),
       });
 
-      const modResult = await modRes.json();
+      const modResult = await modRes.json() as BackendErrorShape;
 
       if (!modRes.ok) {
         return { 
@@ -247,7 +308,7 @@ export function QuestProvider({ children }: { children: ReactNode }) {
       };
 
       const res = await fetch(`${apiBase}/quests`, fetchOpts("POST", backendPayload));
-      const resData = await res.json();
+      const resData = await res.json() as BackendErrorShape;
 
       if (!res.ok) {
         const errorMsg = resData.detail || resData.error || "Database error creating quest.";
@@ -260,7 +321,7 @@ export function QuestProvider({ children }: { children: ReactNode }) {
       // Refresh data to show new quest
       await refreshData();
       return { success: true };
-    } catch (e: any) {
+    } catch {
       return { success: false, error: "Network error submitting quest." };
     }
   }, [apiBase, user, refreshData]);
@@ -277,7 +338,7 @@ export function QuestProvider({ children }: { children: ReactNode }) {
       );
 
       if (!response.ok) {
-        const errorData = await readJson(response);
+        const errorData = await readJson<BackendErrorShape>(response);
         return {
           success: false,
           error: errorData?.detail || errorData?.error || "Unable to claim quest.",
@@ -286,11 +347,11 @@ export function QuestProvider({ children }: { children: ReactNode }) {
 
       await refreshData();
       return { success: true };
-    } catch (e: any) {
-      console.error("Failed to claim quest", e);
+    } catch (error) {
+      console.error("Failed to claim quest", error);
       return {
         success: false,
-        error: e?.message || "Unable to access your location.",
+        error: error instanceof Error ? error.message : "Unable to access your location.",
       };
     }
   }, [apiBase, getCurrentLocation, readJson, refreshData]);
@@ -299,8 +360,8 @@ export function QuestProvider({ children }: { children: ReactNode }) {
     try {
       await fetch(`${apiBase}/quests/${id}/complete`, fetchOpts("POST"));
       await refreshData();
-    } catch (e) {
-      console.error("Failed to complete quest", e);
+    } catch (error) {
+      console.error("Failed to complete quest", error);
     }
   }, [apiBase, refreshData]);
 
@@ -309,8 +370,8 @@ export function QuestProvider({ children }: { children: ReactNode }) {
       await fetch(`${apiBase}/quests/${id}/verify`, fetchOpts("POST"));
       await fetch(`${apiBase}/quests/${id}/reward`, fetchOpts("POST"));
       await refreshData();
-    } catch (e) {
-      console.error("Failed to verify & reward quest", e);
+    } catch (error) {
+      console.error("Failed to verify & reward quest", error);
     }
   }, [apiBase, refreshData]);
 
@@ -318,8 +379,8 @@ export function QuestProvider({ children }: { children: ReactNode }) {
     try {
       await fetch(`${apiBase}/quests/${id}/cancel`, fetchOpts("POST"));
       await refreshData();
-    } catch (e) {
-      console.error("Failed to cancel quest", e);
+    } catch (error) {
+      console.error("Failed to cancel quest", error);
     }
   }, [apiBase, refreshData]);
 

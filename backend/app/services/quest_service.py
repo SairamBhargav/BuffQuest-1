@@ -6,16 +6,26 @@ from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import Settings
 from app.models.quest import ModerationStatus, Quest, QuestStatus
 from app.schemas.quest import QuestCreate, QuestUpdate
+from app.services.moderation_service import moderate_quest_content
 from app.services.reward_service import deduct_quest_cost, refund_quest
 
 async def create_quest_service(
     db: AsyncSession,
     user_id: str,
-    payload: QuestCreate
+    payload: QuestCreate,
+    settings: Settings,
 ) -> Quest:
     """Create a new quest and deduct cost_credits from the creator."""
+    moderation = await moderate_quest_content(payload.title, payload.description, settings)
+    if moderation.status == ModerationStatus.rejected:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            moderation.reason or "Quest rejected by moderation.",
+        )
+
     quest = Quest(
         creator_id=user_id,
         title=payload.title,
@@ -26,7 +36,8 @@ async def create_quest_service(
         reward_notoriety=payload.reward_notoriety,
         expires_at=payload.expires_at,
         status=QuestStatus.open,
-        moderation_status=payload.moderation_status or ModerationStatus.pending,
+        moderation_status=moderation.status,
+        moderation_reason=moderation.reason,
     )
     db.add(quest)
     await db.flush()  # get quest.id before logging

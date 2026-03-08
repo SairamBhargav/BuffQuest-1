@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useToast } from "@/context/ToastContext";
 import { useQuests } from "@/context/QuestContext";
@@ -11,13 +11,48 @@ interface AttendanceDrawerProps {
   onClose: () => void;
 }
 
-type VerificationStage = "idle" | "verifying" | "success" | "failed";
+type VerificationStage = "idle" | "verifying" | "success" | "pending" | "failed";
+
+const CAMPUS_BUILDINGS = [
+  { id: 1, name: "Norlin Library" },
+  { id: 2, name: "Duane Physics" },
+  { id: 3, name: "UMC" },
+  { id: 4, name: "Engineering Center" },
+  { id: 5, name: "C4C" },
+  { id: 6, name: "Rec Center" },
+  { id: 7, name: "ATLAS" },
+  { id: 8, name: "SEEC" },
+  { id: 9, name: "Eaton Humanities" },
+];
+
+async function readFileAsDataUrl(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === "string") {
+        resolve(reader.result);
+        return;
+      }
+
+      reject(new Error("Could not read file."));
+    };
+    reader.onerror = () => reject(new Error("Could not read file."));
+    reader.readAsDataURL(file);
+  });
+}
 
 export default function AttendanceDrawer({ isOpen, onClose }: AttendanceDrawerProps) {
   const { addToast } = useToast();
   const { refreshData } = useQuests();
-  const [hasSchedule, setHasSchedule] = useState(false);
+  const scheduleInputRef = useRef<HTMLInputElement | null>(null);
+  const classPhotoInputRef = useRef<HTMLInputElement | null>(null);
   const [scheduleName, setScheduleName] = useState("");
+  const [scheduleProof, setScheduleProof] = useState<string>("");
+  const [classPhotoName, setClassPhotoName] = useState("");
+  const [classPhotoProof, setClassPhotoProof] = useState<string>("");
+  const [className, setClassName] = useState("CSCI 3104");
+  const [scheduledStartTime, setScheduledStartTime] = useState(() => new Date().toISOString().slice(0, 16));
+  const [selectedBuildingId, setSelectedBuildingId] = useState(1);
   const [stage, setStage] = useState<VerificationStage>("idle");
 
   const getCurrentLocation = () =>
@@ -34,14 +69,44 @@ export default function AttendanceDrawer({ isOpen, onClose }: AttendanceDrawerPr
       });
     });
 
-  const handleScheduleUpload = () => {
-    // Simulate a schedule upload
-    setScheduleName("Spring 2026 Schedule");
-    setHasSchedule(true);
-    addToast("Schedule uploaded successfully!", "success");
+  const handleScheduleUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    try {
+      const encoded = await readFileAsDataUrl(file);
+      setScheduleProof(encoded);
+      setScheduleName(file.name);
+      addToast("Schedule uploaded successfully!", "success");
+    } catch (error) {
+      addToast(error instanceof Error ? error.message : "Unable to load schedule image.", "error");
+    }
+  };
+
+  const handleClassPhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    try {
+      const encoded = await readFileAsDataUrl(file);
+      setClassPhotoProof(encoded);
+      setClassPhotoName(file.name);
+      addToast("Class photo attached.", "success");
+    } catch (error) {
+      addToast(error instanceof Error ? error.message : "Unable to load class photo.", "error");
+    }
   };
 
   const handleCheckIn = async () => {
+    if (!scheduleProof || !classPhotoProof) {
+      addToast("Upload both your schedule and a class photo first.", "error");
+      return;
+    }
+
     setStage("verifying");
 
     try {
@@ -51,26 +116,32 @@ export default function AttendanceDrawer({ isOpen, onClose }: AttendanceDrawerPr
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
-          class_name: scheduleName || "General Class",
-          schedule_image_url: "https://example.com/mock_schedule.png",
-          class_photo_url: "https://example.com/mock_photo.png",
-          building_zone_id: 1, // Fallback location
+          class_name: className,
+          schedule_image_url: scheduleProof,
+          class_photo_url: classPhotoProof,
+          building_zone_id: selectedBuildingId,
           user_lat: position.coords.latitude,
           user_lon: position.coords.longitude,
-          scheduled_start_time: new Date().toISOString(),
+          scheduled_start_time: new Date(scheduledStartTime).toISOString(),
         }),
       });
 
       if (res.ok) {
-        setStage("success");
-        addToast("+5 daily credits earned! 🎓", "reward");
+        const payload = await res.json();
+        if (payload.verification_status === "approved" && payload.reward_issued) {
+          setStage("success");
+          addToast("+5 daily credits earned! 🎓", "reward");
+        } else {
+          setStage("pending");
+          addToast("Attendance proof submitted for manual review.", "info");
+        }
         await refreshData();
       } else {
         const errorData = await res.json();
         setStage("failed");
         addToast(errorData.detail || "Verification failed.", "error");
       }
-    } catch (e) {
+    } catch {
       setStage("failed");
       addToast("Network error during check-in.", "error");
     }
@@ -128,7 +199,7 @@ export default function AttendanceDrawer({ isOpen, onClose }: AttendanceDrawerPr
               {/* Schedule Section */}
               <div className="liquid-glass-dark rounded-[28px] p-5 space-y-4">
                 <h3 className="text-xs font-black tracking-widest text-slate-400 uppercase">Your Schedule</h3>
-                {hasSchedule ? (
+                {scheduleProof ? (
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center">
@@ -140,22 +211,25 @@ export default function AttendanceDrawer({ isOpen, onClose }: AttendanceDrawerPr
                       </div>
                     </div>
                     <button
-                      onClick={() => { setHasSchedule(false); setScheduleName(""); }}
+                      onClick={() => { setScheduleProof(""); setScheduleName(""); if (scheduleInputRef.current) scheduleInputRef.current.value = ""; }}
                       className="text-xs text-slate-500 hover:text-red-400 font-bold transition-colors"
                     >
                       Remove
                     </button>
                   </div>
                 ) : (
-                  <motion.button
-                    whileTap={{ scale: 0.95 }}
-                    onClick={handleScheduleUpload}
-                    className="w-full border-2 border-dashed border-white/15 rounded-2xl py-6 flex flex-col items-center gap-2 text-slate-400 hover:border-yellow-400/30 hover:text-yellow-400 transition-all group"
-                  >
-                    <span className="text-3xl group-hover:scale-110 transition-transform">📋</span>
-                    <span className="font-bold text-sm">Upload Class Schedule</span>
-                    <span className="text-xs text-slate-500">Photo of your schedule or screenshot</span>
-                  </motion.button>
+                  <>
+                    <input ref={scheduleInputRef} type="file" accept="image/*" className="hidden" onChange={handleScheduleUpload} />
+                    <motion.button
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => scheduleInputRef.current?.click()}
+                      className="w-full border-2 border-dashed border-white/15 rounded-2xl py-6 flex flex-col items-center gap-2 text-slate-400 hover:border-yellow-400/30 hover:text-yellow-400 transition-all group"
+                    >
+                      <span className="text-3xl group-hover:scale-110 transition-transform">📋</span>
+                      <span className="font-bold text-sm">Upload Class Schedule</span>
+                      <span className="text-xs text-slate-500">Photo of your schedule or screenshot</span>
+                    </motion.button>
+                  </>
                 )}
               </div>
 
@@ -165,20 +239,73 @@ export default function AttendanceDrawer({ isOpen, onClose }: AttendanceDrawerPr
 
                 {stage === "idle" && (
                   <div className="space-y-4">
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div className="space-y-2 sm:col-span-2">
+                        <label className="text-xs font-black uppercase tracking-widest text-slate-400">Class Name</label>
+                        <input
+                          value={className}
+                          onChange={(event) => setClassName(event.target.value)}
+                          className="w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white focus:outline-none focus:border-yellow-400/40"
+                          placeholder="e.g. CSCI 3104"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-xs font-black uppercase tracking-widest text-slate-400">Scheduled Start</label>
+                        <input
+                          type="datetime-local"
+                          value={scheduledStartTime}
+                          onChange={(event) => setScheduledStartTime(event.target.value)}
+                          className="w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white focus:outline-none focus:border-yellow-400/40"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-xs font-black uppercase tracking-widest text-slate-400">Campus Building</label>
+                        <select
+                          value={selectedBuildingId}
+                          onChange={(event) => setSelectedBuildingId(Number(event.target.value))}
+                          className="w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white focus:outline-none focus:border-yellow-400/40"
+                        >
+                          {CAMPUS_BUILDINGS.map((building) => (
+                            <option key={building.id} value={building.id} className="bg-slate-900">
+                              {building.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="rounded-[24px] border border-white/10 bg-black/20 p-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-black text-white">Classroom Proof Photo</p>
+                          <p className="text-xs text-slate-500">Take or upload a current photo from class.</p>
+                        </div>
+                        {classPhotoName && <span className="text-xs font-bold text-green-400">Attached</span>}
+                      </div>
+                      <input ref={classPhotoInputRef} type="file" accept="image/*" className="hidden" onChange={handleClassPhotoUpload} />
+                      <motion.button
+                        whileTap={{ scale: 0.97 }}
+                        onClick={() => classPhotoInputRef.current?.click()}
+                        className="mt-3 w-full rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-3 text-sm font-bold text-slate-200 hover:bg-white/[0.08]"
+                      >
+                        {classPhotoName ? `Replace Photo: ${classPhotoName}` : "Upload Class Photo"}
+                      </motion.button>
+                    </div>
+
                     <p className="text-sm text-slate-400">
-                      Take a photo from your class to verify attendance and earn <span className="text-yellow-400 font-black">+5 credits</span> daily.
+                      Submit a real schedule image, a classroom photo, your class time, and your current location to earn <span className="text-yellow-400 font-black">+5 credits</span>.
                     </p>
                     <motion.button
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.95 }}
                       onClick={handleCheckIn}
-                      disabled={!hasSchedule}
+                      disabled={!scheduleProof || !classPhotoProof || !className.trim()}
                       className="w-full squishy-btn text-yellow-900 font-black py-4 rounded-[28px] uppercase tracking-widest text-base border-2 border-white/60 shadow-xl disabled:opacity-40 disabled:pointer-events-none"
                     >
                       📸 Check In Now
                     </motion.button>
-                    {!hasSchedule && (
-                      <p className="text-xs text-center text-slate-500 font-medium">Upload your schedule first to enable check-in</p>
+                    {(!scheduleProof || !classPhotoProof) && (
+                      <p className="text-xs text-center text-slate-500 font-medium">Upload both images to enable check-in</p>
                     )}
                   </div>
                 )}
@@ -189,7 +316,7 @@ export default function AttendanceDrawer({ isOpen, onClose }: AttendanceDrawerPr
                       <div className="w-10 h-10 rounded-full border-4 border-yellow-400/30 border-t-yellow-400 animate-spin" />
                     </div>
                     <p className="text-white font-bold text-sm">Verifying location & time...</p>
-                    <p className="text-xs text-slate-500">Checking your class schedule match</p>
+                    <p className="text-xs text-slate-500">Checking time window, proof images, and location</p>
                   </div>
                 )}
 
@@ -216,6 +343,19 @@ export default function AttendanceDrawer({ isOpen, onClose }: AttendanceDrawerPr
                     <div className="text-5xl">❌</div>
                     <span className="text-lg font-black text-red-400">Verification Failed</span>
                     <span className="text-sm text-slate-400">Ensure you are in the correct building during class time.</span>
+                  </motion.div>
+                )}
+
+                {stage === "pending" && (
+                  <motion.div
+                    initial={{ scale: 0.5, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    transition={{ type: "spring", stiffness: 500, damping: 20 }}
+                    className="flex flex-col items-center py-8 gap-3"
+                  >
+                    <div className="text-5xl">🕓</div>
+                    <span className="text-lg font-black text-cyan-300">Submitted For Review</span>
+                    <span className="text-sm text-slate-400 text-center">Your proof was saved, but the time window needs manual review before credits are issued.</span>
                   </motion.div>
                 )}
               </div>
