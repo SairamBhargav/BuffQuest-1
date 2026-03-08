@@ -32,4 +32,5 @@ python-dotenv==1.0.1
 
 #Testing
 pytest==9.0.2
+pytest-asyncio==0.25.3
 ########
