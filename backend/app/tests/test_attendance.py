@@ -1,0 +1,105 @@
+"""Tests for attendance endpoints (``/api/attendance/…``)."""
+
+import uuid
+from datetime import datetime, timezone
+from unittest.mock import AsyncMock, MagicMock
+
+import pytest
+
+from app.models.attendance import AttendanceSubmission, AttendanceVerificationStatus
+
+from .conftest import MOCK_USER_ID
+
+pytestmark = pytest.mark.asyncio
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _make_submission(
+    submission_id: int = 1,
+    user_id: uuid.UUID = MOCK_USER_ID,
+) -> MagicMock:
+    """Return a mock AttendanceSubmission row."""
+    sub = MagicMock(spec=AttendanceSubmission)
+    sub.id = submission_id
+    sub.user_id = user_id
+    sub.schedule_image_url = "https://example.com/schedule.png"
+    sub.class_photo_url = "https://example.com/photo.png"
+    sub.class_name = "CSCI 3104"
+    sub.building_zone_id = 1
+    sub.scheduled_start_time = datetime.now(timezone.utc)
+    sub.submission_time = datetime.now(timezone.utc)
+    sub.verification_status = AttendanceVerificationStatus.PENDING
+    sub.reward_issued = False
+    sub.created_at = datetime.now(timezone.utc)
+    return sub
+
+
+# ---------------------------------------------------------------------------
+# Tests
+# ---------------------------------------------------------------------------
+
+async def test_check_in_success(mock_user, mock_db, client):
+    """POST /attendance/check-in creates a submission and returns 201."""
+
+    # db.refresh() is called after commit — simulate what the DB would
+    # return by filling in server-defaulted columns on the ORM object.
+    async def _fake_refresh(obj, *args, **kwargs):
+        obj.id = 1
+        obj.submission_time = datetime.now(timezone.utc)
+        obj.verification_status = AttendanceVerificationStatus.PENDING
+        obj.reward_issued = False
+        obj.created_at = datetime.now(timezone.utc)
+
+    mock_db.refresh = AsyncMock(side_effect=_fake_refresh)
+
+    resp = await client.post(
+        "/api/attendance/check-in",
+        json={
+            "schedule_image_url": "https://example.com/schedule.png",
+            "class_photo_url": "https://example.com/photo.png",
+            "class_name": "CSCI 3104",
+            "building_zone_id": 1,
+            "scheduled_start_time": datetime.now(timezone.utc).isoformat(),
+        },
+    )
+
+    assert resp.status_code == 201
+    mock_db.add.assert_called_once()
+    mock_db.commit.assert_awaited_once()
+    mock_db.refresh.assert_awaited_once()
+
+
+async def test_get_attendance_history(mock_user, mock_db, client):
+    """GET /attendance/history returns a list of submissions."""
+    submissions = [_make_submission(i) for i in range(3)]
+
+    result_mock = MagicMock()
+    scalars_mock = MagicMock()
+    scalars_mock.all.return_value = submissions
+    result_mock.scalars.return_value = scalars_mock
+    mock_db.execute.return_value = result_mock
+
+    resp = await client.get("/api/attendance/history")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert isinstance(data, list)
+    assert len(data) == 3
+
+
+async def test_get_attendance_history_pagination(mock_user, mock_db, client):
+    """GET /attendance/history respects limit and offset params."""
+    submissions = [_make_submission(1)]
+
+    result_mock = MagicMock()
+    scalars_mock = MagicMock()
+    scalars_mock.all.return_value = submissions
+    result_mock.scalars.return_value = scalars_mock
+    mock_db.execute.return_value = result_mock
+
+    resp = await client.get("/api/attendance/history?limit=1&offset=0")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert len(data) == 1
