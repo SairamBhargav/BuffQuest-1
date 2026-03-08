@@ -43,10 +43,7 @@ export default function RegisterPage() {
       if (error) {
         setError(error.message || 'Registration failed')
       } else {
-        setMessage('Registration successful! Redirecting to the map...')
-        setTimeout(() => {
-          router.push('/map')
-        }, 1500)
+        setMessage('Registration successful! Please check your email to verify your account.')
       }
     } catch (err) {
       setError('An unexpected error occurred. Please try again.')
