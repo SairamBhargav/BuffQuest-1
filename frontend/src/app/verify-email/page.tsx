@@ -11,6 +11,18 @@ function VerifyEmailContent() {
   const error = searchParams.get('error')
   const [countdown, setCountdown] = useState(3)
 
+  // Broadcast verification success to other tabs (login/register pages)
+  useEffect(() => {
+    if (error) return
+    try {
+      const channel = new BroadcastChannel('buffquest-email-verified')
+      channel.postMessage({ verified: true })
+      channel.close()
+    } catch {
+      // BroadcastChannel not supported — fallback ignored
+    }
+  }, [error])
+
   // Auto-redirect on successful verification
   useEffect(() => {
     if (error) return

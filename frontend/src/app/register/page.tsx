@@ -18,6 +18,23 @@ export default function RegisterPage() {
   const [resending, setResending] = useState(false)
   const router = useRouter()
 
+  // Listen for cross-tab verification success
+  useEffect(() => {
+    try {
+      const channel = new BroadcastChannel('buffquest-email-verified')
+      channel.onmessage = (event) => {
+        if (event.data?.verified) {
+          setError('')
+          setMessage('Email verified! Redirecting...')
+          setTimeout(() => router.push('/map'), 2000)
+        }
+      }
+      return () => channel.close()
+    } catch {
+      // BroadcastChannel not supported
+    }
+  }, [router])
+
   // Countdown timer for resend cooldown
   useEffect(() => {
     if (resendCooldown <= 0) return

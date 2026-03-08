@@ -13,9 +13,29 @@ export default function LoginPage() {
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
   const [needsVerification, setNeedsVerification] = useState(false)
+  const [emailVerified, setEmailVerified] = useState(false)
   const [resendCooldown, setResendCooldown] = useState(0)
   const [resending, setResending] = useState(false)
   const router = useRouter()
+
+  // Listen for cross-tab verification success
+  useEffect(() => {
+    try {
+      const channel = new BroadcastChannel('buffquest-email-verified')
+      channel.onmessage = (event) => {
+        if (event.data?.verified) {
+          setEmailVerified(true)
+          setNeedsVerification(false)
+          setError('')
+          setMessage('Email verified! Redirecting...')
+          setTimeout(() => router.push('/map'), 2000)
+        }
+      }
+      return () => channel.close()
+    } catch {
+      // BroadcastChannel not supported
+    }
+  }, [router])
 
   // Countdown timer for resend cooldown
   useEffect(() => {
