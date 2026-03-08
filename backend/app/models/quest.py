@@ -12,18 +12,28 @@ from app.core.database import Base
 # ── enums (mirror Postgres enums) ────────────────────────────
 class QuestStatus(str, enum.Enum):
     open = "open"
+    OPEN = "open"
     claimed = "claimed"
+    CLAIMED = "claimed"
     completed = "completed"
+    COMPLETED = "completed"
     verified = "verified"
+    VERIFIED = "verified"
     rewarded = "rewarded"
+    REWARDED = "rewarded"
     cancelled = "cancelled"
+    CANCELLED = "cancelled"
     expired = "expired"
+    EXPIRED = "expired"
 
 
 class ModerationStatus(str, enum.Enum):
     pending = "pending"
+    PENDING = "pending"
     approved = "approved"
+    APPROVED = "approved"
     rejected = "rejected"
+    REJECTED = "rejected"
 
 
 class Quest(Base):

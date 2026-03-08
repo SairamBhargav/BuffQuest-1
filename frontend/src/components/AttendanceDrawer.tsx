@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useToast } from "@/context/ToastContext";
 import { useQuests } from "@/context/QuestContext";
+import { getBackendApiUrl } from "@/lib/api";
 
 interface AttendanceDrawerProps {
   isOpen: boolean;
@@ -19,6 +20,20 @@ export default function AttendanceDrawer({ isOpen, onClose }: AttendanceDrawerPr
   const [scheduleName, setScheduleName] = useState("");
   const [stage, setStage] = useState<VerificationStage>("idle");
 
+  const getCurrentLocation = () =>
+    new Promise<GeolocationPosition>((resolve, reject) => {
+      if (!("geolocation" in navigator)) {
+        reject(new Error("Geolocation is not available in this browser."));
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(resolve, reject, {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 30000,
+      });
+    });
+
   const handleScheduleUpload = () => {
     // Simulate a schedule upload
     setScheduleName("Spring 2026 Schedule");
@@ -30,7 +45,8 @@ export default function AttendanceDrawer({ isOpen, onClose }: AttendanceDrawerPr
     setStage("verifying");
 
     try {
-      const res = await fetch("http://localhost:8000/api/attendance/check-in", {
+      const position = await getCurrentLocation();
+      const res = await fetch(getBackendApiUrl("attendance/check-in"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -39,6 +55,8 @@ export default function AttendanceDrawer({ isOpen, onClose }: AttendanceDrawerPr
           schedule_image_url: "https://example.com/mock_schedule.png",
           class_photo_url: "https://example.com/mock_photo.png",
           building_zone_id: 1, // Fallback location
+          user_lat: position.coords.latitude,
+          user_lon: position.coords.longitude,
           scheduled_start_time: new Date().toISOString(),
         }),
       });

@@ -22,7 +22,7 @@ router = APIRouter(prefix="/quests", tags=["claims"])
 @router.post("/{quest_id}/claim", response_model=QuestRead)
 async def claim_quest(
     quest_id: int,
-    payload: QuestClaimCreate,
+    payload: QuestClaimCreate | None = None,
     user_id: str = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):

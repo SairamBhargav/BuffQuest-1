@@ -12,8 +12,8 @@ class AttendanceSubmissionCreate(BaseModel):
     class_photo_url: str
     class_name: str = Field(..., min_length=1)
     building_zone_id: int | None = None
-    user_lat: float
-    user_lon: float
+    user_lat: float | None = None
+    user_lon: float | None = None
     scheduled_start_time: datetime
 
 

@@ -105,8 +105,13 @@ export default function MapMockup() {
 
   const openQuests = quests.filter(q => q.status === 'open');
 
-  const handleClaim = (quest: Quest) => {
-    claimQuest(quest.id);
+  const handleClaim = async (quest: Quest) => {
+    const result = await claimQuest(quest.id);
+    if (!result.success) {
+      addToast(result.error || "Unable to claim quest.", "error");
+      return;
+    }
+
     setSelectedQuest(null);
     addToast(`Quest claimed: "${quest.title}"`, "success");
 
@@ -310,7 +315,7 @@ export default function MapMockup() {
                 <motion.button 
                   whileTap={{ scale: 0.94 }}
                   className="w-full squishy-btn text-yellow-900 font-black py-3 rounded-[24px] uppercase tracking-wider text-sm border-2 border-white/60"
-                  onClick={() => handleClaim(selectedQuest)}
+                  onClick={() => void handleClaim(selectedQuest)}
                 >
                   Claim Quest
                 </motion.button>

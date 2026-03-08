@@ -102,6 +102,16 @@ export default function RegisterPage() {
       if (error) {
         setError(error.message || 'Registration failed')
       } else {
+        const { error: verificationError } = await authClient.sendVerificationEmail({
+          email,
+          callbackURL: '/verify-email',
+        })
+
+        if (verificationError) {
+          setError(verificationError.message || 'Account created, but verification email could not be sent yet.')
+          return
+        }
+
         setRegistered(true)
         setMessage('Registration successful! Please check your email to verify your account.')
         setResendCooldown(30)

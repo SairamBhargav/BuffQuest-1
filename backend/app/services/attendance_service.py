@@ -46,7 +46,11 @@ async def process_attendance_checkin(
         )
 
     # Validate physical presence if checking into a designated campus building
-    if payload.building_zone_id is not None:
+    if (
+        payload.building_zone_id is not None
+        and payload.user_lat is not None
+        and payload.user_lon is not None
+    ):
         await verify_user_in_zone(
             db=db,
             building_zone_id=payload.building_zone_id,

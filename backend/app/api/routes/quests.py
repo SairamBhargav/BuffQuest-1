@@ -49,10 +49,11 @@ async def list_quests(
 
     quests_response = []
     for row in result.all():
-        quest_out = QuestRead.model_validate(row[Quest])
-        quest_out.building_name = row.building_name
-        quest_out.latitude = row.latitude
-        quest_out.longitude = row.longitude
+        quest, building_name, latitude, longitude = row
+        quest_out = QuestRead.model_validate(quest)
+        quest_out.building_name = building_name
+        quest_out.latitude = latitude
+        quest_out.longitude = longitude
         quests_response.append(quest_out)
         
     return quests_response
@@ -76,11 +77,12 @@ async def get_quest(
     row = result.first()
     if row is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Quest not found")
-        
-    quest_out = QuestRead.model_validate(row[Quest])
-    quest_out.building_name = row.building_name
-    quest_out.latitude = row.latitude
-    quest_out.longitude = row.longitude
+
+    quest, building_name, latitude, longitude = row
+    quest_out = QuestRead.model_validate(quest)
+    quest_out.building_name = building_name
+    quest_out.latitude = latitude
+    quest_out.longitude = longitude
     return quest_out
 
 

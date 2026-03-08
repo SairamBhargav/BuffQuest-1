@@ -5,14 +5,20 @@ from fastapi import HTTPException, status
 from pydantic import BaseModel
 
 class QuestStatus(str, Enum):
-class QuestStatus(str, Enum):
     open = "open"
+    OPEN = "open"
     claimed = "claimed"
+    CLAIMED = "claimed"
     completed = "completed"
+    COMPLETED = "completed"
     verified = "verified"
+    VERIFIED = "verified"
     rewarded = "rewarded"
+    REWARDED = "rewarded"
     cancelled = "cancelled"
+    CANCELLED = "cancelled"
     expired = "expired"
+    EXPIRED = "expired"
 
 
 class QuestMachineState(BaseModel):

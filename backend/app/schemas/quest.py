@@ -56,5 +56,5 @@ class QuestRead(BaseModel):
 
 class QuestClaimCreate(BaseModel):
     """Payload for claiming a quest requiring physical proximity."""
-    user_lat: float
-    user_lon: float
+    user_lat: float | None = None
+    user_lon: float | None = None

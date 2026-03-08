@@ -11,8 +11,11 @@ from app.core.database import Base
 
 class AttendanceVerificationStatus(str, enum.Enum):
     pending = "pending"
+    PENDING = "pending"
     approved = "approved"
+    APPROVED = "approved"
     rejected = "rejected"
+    REJECTED = "rejected"
 
 
 class AttendanceSubmission(Base):

@@ -52,7 +52,7 @@ interface QuestContextType {
   user: UserProfile | null;
   leaderboard: LeaderboardEntry[];
   addQuest: (quest: any) => Promise<{ success: boolean; error?: string }>;
-  claimQuest: (id: string) => Promise<void>;
+  claimQuest: (id: string) => Promise<{ success: boolean; error?: string }>;
   completeQuest: (id: string) => Promise<void>;
   verifyQuest: (id: string) => Promise<void>;
   cancelQuest: (id: string) => Promise<void>;
@@ -97,6 +97,21 @@ export function QuestProvider({ children }: { children: ReactNode }) {
 
   const { data: session, isPending: isSessionLoading } = authClient.useSession();
 
+  const getCurrentLocation = useCallback(() => {
+    return new Promise<GeolocationPosition>((resolve, reject) => {
+      if (typeof navigator === "undefined" || !("geolocation" in navigator)) {
+        reject(new Error("Geolocation is not available in this browser."));
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(resolve, reject, {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 30000,
+      });
+    });
+  }, []);
+
   const readJson = useCallback(async (response: Response) => {
     const contentType = response.headers.get("content-type") || "";
     if (!contentType.includes("application/json")) {
@@ -124,16 +139,24 @@ export function QuestProvider({ children }: { children: ReactNode }) {
 
   const refreshData = useCallback(async () => {
     try {
-      const [userResult, questsResult, leaderboardResult] = await Promise.allSettled([
-        fetch(`${apiBase}/users/me`, fetchOpts("GET")),
+      const requests: Promise<Response>[] = [];
+      if (session) {
+        requests.push(fetch(`${apiBase}/users/me`, fetchOpts("GET")));
+      }
+      requests.push(
         fetch(`${apiBase}/quests?limit=100`, fetchOpts("GET")),
         fetch(`${apiBase}/leaderboard`, fetchOpts("GET")),
-      ]);
+      );
 
-      if (userResult.status === "fulfilled") {
+      const results = await Promise.allSettled(requests);
+      const userResult = session ? results[0] : null;
+      const questsResult = results[session ? 1 : 0];
+      const leaderboardResult = results[session ? 2 : 1];
+
+      if (userResult && userResult.status === "fulfilled") {
         if (userResult.value.ok) {
           const userData = await readJson(userResult.value);
-          if (userData && typeof userData === 'object' && userData.id) {
+          if (userData && typeof userData === "object" && userData.id) {
             setUser(normalizeUser(userData));
           } else {
             console.error("Invalid user data received", userData);
@@ -145,8 +168,10 @@ export function QuestProvider({ children }: { children: ReactNode }) {
           console.error("Failed to load user profile", userResult.value.status);
           setUser(null);
         }
-      } else {
+      } else if (userResult && userResult.status === "rejected") {
         console.error("Failed to fetch user profile", userResult.reason);
+        setUser(null);
+      } else if (!session) {
         setUser(null);
       }
 
@@ -172,7 +197,7 @@ export function QuestProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  }, [apiBase, readJson]);
+  }, [apiBase, readJson, session]);
 
   useEffect(() => {
     if (!isSessionLoading) {
@@ -242,12 +267,33 @@ export function QuestProvider({ children }: { children: ReactNode }) {
 
   const claimQuest = useCallback(async (id: string) => {
     try {
-      await fetch(`${apiBase}/quests/${id}/claim`, fetchOpts("POST"));
+      const position = await getCurrentLocation();
+      const response = await fetch(
+        `${apiBase}/quests/${id}/claim`,
+        fetchOpts("POST", {
+          user_lat: position.coords.latitude,
+          user_lon: position.coords.longitude,
+        })
+      );
+
+      if (!response.ok) {
+        const errorData = await readJson(response);
+        return {
+          success: false,
+          error: errorData?.detail || errorData?.error || "Unable to claim quest.",
+        };
+      }
+
       await refreshData();
-    } catch (e) {
+      return { success: true };
+    } catch (e: any) {
       console.error("Failed to claim quest", e);
+      return {
+        success: false,
+        error: e?.message || "Unable to access your location.",
+      };
     }
-  }, [apiBase, refreshData]);
+  }, [apiBase, getCurrentLocation, readJson, refreshData]);
 
   const completeQuest = useCallback(async (id: string) => {
     try {

@@ -4,6 +4,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useQuests, Quest } from "@/context/QuestContext";
 import { useToast } from "@/context/ToastContext";
+import { getBackendApiUrl, getBackendWebSocketUrl } from "@/lib/api";
 
 interface Message {
   id: string;
@@ -44,7 +45,7 @@ export default function ActiveQuestChat({ isOpen, onClose, quest, role }: Active
     if (!isOpen || !quest) return;
 
     // First fetch historical messages
-    fetch(`http://localhost:8000/api/quests/${quest.id}/messages`, {
+    fetch(getBackendApiUrl(`quests/${quest.id}/messages`), {
       credentials: "include"
     })
       .then(res => res.json())
@@ -62,8 +63,7 @@ export default function ActiveQuestChat({ isOpen, onClose, quest, role }: Active
       .catch(err => console.error("Failed to load chat history:", err));
 
     // Connect WebSocket
-    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const wsUrl = `ws://localhost:8000/api/quests/${quest.id}/ws`;
+    const wsUrl = getBackendWebSocketUrl(`quests/${quest.id}/ws`);
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
 

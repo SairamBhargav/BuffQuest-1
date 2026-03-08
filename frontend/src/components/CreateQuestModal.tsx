@@ -25,8 +25,6 @@ export default function CreateQuestModal({ isOpen, onClose }: CreateQuestModalPr
   const { addQuest, user } = useQuests();
   const { addToast } = useToast();
 
-  if (!user) return null;
-
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [bounty, setBounty] = useState(10);
@@ -90,6 +88,8 @@ export default function CreateQuestModal({ isOpen, onClose }: CreateQuestModalPr
       dragY.set(0);
     }
   }, [isOpen, dragY]);
+
+  if (!user) return null;
 
   return (
     <AnimatePresence>

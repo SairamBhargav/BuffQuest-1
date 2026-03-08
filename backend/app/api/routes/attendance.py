@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.security import get_current_user
+from app.models.attendance import AttendanceSubmission
 from app.schemas.attendance import AttendanceSubmissionCreate, AttendanceSubmissionRead
 from app.services.attendance_service import process_attendance_checkin
 

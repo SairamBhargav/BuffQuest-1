@@ -11,10 +11,15 @@ from app.core.database import Base
 
 class RewardSourceType(str, enum.Enum):
     quest_post = "quest_post"
+    QUEST_POST = "quest_post"
     quest_completion = "quest_completion"
+    QUEST_COMPLETION = "quest_completion"
     quest_refund = "quest_refund"
+    QUEST_REFUND = "quest_refund"
     attendance_reward = "attendance_reward"
+    ATTENDANCE_REWARD = "attendance_reward"
     manual_adjustment = "manual_adjustment"
+    MANUAL_ADJUSTMENT = "manual_adjustment"
 
 
 class RewardLog(Base):
