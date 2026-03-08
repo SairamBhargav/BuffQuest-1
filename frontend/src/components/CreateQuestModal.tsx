@@ -11,14 +11,14 @@ interface CreateQuestModalProps {
 }
 
 const CAMPUS_ZONES = [
-  { name: "Norlin Library", lng: -105.2730, lat: 40.0085 },
-  { name: "Duane Physics", lng: -105.2670, lat: 40.0060 },
-  { name: "UMC", lng: -105.2720, lat: 40.0050 },
-  { name: "Engineering Center", lng: -105.2635, lat: 40.0070 },
-  { name: "C4C", lng: -105.2635, lat: 40.0043 },
-  { name: "Rec Center", lng: -105.2680, lat: 40.0090 },
-  { name: "ATLAS", lng: -105.2630, lat: 40.0065 },
-  { name: "SEEC", lng: -105.2410, lat: 40.0095 },
+  { id: 1, name: "Norlin Library", lng: -105.2730, lat: 40.0085 },
+  { id: 2, name: "Duane Physics", lng: -105.2670, lat: 40.0060 },
+  { id: 3, name: "UMC", lng: -105.2720, lat: 40.0050 },
+  { id: 4, name: "Engineering Center", lng: -105.2635, lat: 40.0070 },
+  { id: 5, name: "C4C", lng: -105.2635, lat: 40.0043 },
+  { id: 6, name: "Rec Center", lng: -105.2680, lat: 40.0090 },
+  { id: 7, name: "ATLAS", lng: -105.2630, lat: 40.0065 },
+  { id: 8, name: "SEEC", lng: -105.2410, lat: 40.0095 },
 ];
 
 export default function CreateQuestModal({ isOpen, onClose }: CreateQuestModalProps) {
@@ -58,18 +58,17 @@ export default function CreateQuestModal({ isOpen, onClose }: CreateQuestModalPr
       }
 
       // 2. Call the Real Backend API (FastAPI) to create the quest
-      // In a real app we would pass JWT or session cookie headers
-      const beResponse = await fetch('http://localhost:8000/api/quests/', {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const beResponse = await fetch(`${apiUrl}/api/quests/`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          // Assuming authorization header or cookie is handled via interceptors or proxy in real app; 
-          // For now, testing environment. Better-Auth sets cookie automatically if we proxy or if CORS is set up with credentials.
         },
+        credentials: 'include', // Send cookies (like better-auth session) to backend
         body: JSON.stringify({
           title,
           description,
-          building_zone_id: zoneIndex, // Backend expects building_zone_id
+          building_zone_id: selectedZone.id, // Use the actual DB ID, not the array index
           cost_credits: bounty,
           reward_credits: bounty,
           reward_notoriety: 0,

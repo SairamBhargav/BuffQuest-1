@@ -9,7 +9,7 @@ const gemini = new GoogleGenAI({
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { title, description, buildingId, rewardCredits, creatorId, skipDb } = body;
+    const { title, description } = body;
 
     if (!title || !description) {
       return NextResponse.json({ error: 'Title and description are required.' }, { status: 400 });
