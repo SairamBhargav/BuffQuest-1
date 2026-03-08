@@ -2,19 +2,16 @@
 
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
-export default function LoginPage() {
+export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
-  const router = useRouter()
   const supabase = createClient()
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleReset = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setMessage('')
@@ -28,23 +25,19 @@ export default function LoginPage() {
     }
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/update-password`,
       })
 
       if (error) {
         setError(error.message)
       } else {
-        setMessage('Successfully logged in! Redirecting...')
-        router.push('/map')
+        setMessage('Password reset instructions sent. Please check your email to update your password.')
       }
     } catch (err) {
       setError('An unexpected error occurred. Please try again.')
     } finally {
-      if (!message) {
-        setLoading(false)
-      }
+      setLoading(false)
     }
   }
 
@@ -52,12 +45,12 @@ export default function LoginPage() {
     <div className="flex min-h-screen flex-col items-center justify-center p-4 bg-gray-50">
       <div className="w-full max-w-md space-y-8 bg-white p-8 rounded-xl shadow-md border border-gray-100">
         <div className="text-center">
-          <h2 className="mt-6 text-3xl font-extrabold text-gray-900">Sign in to BuffQuest</h2>
+          <h2 className="mt-6 text-3xl font-extrabold text-gray-900">Forgot Password</h2>
           <p className="mt-2 text-sm text-gray-600">
-            Enter your CU Boulder email and password.
+            Enter your CU Boulder email to receive password reset instructions.
           </p>
         </div>
-        <form className="mt-8 space-y-6" onSubmit={handleLogin}>
+        <form className="mt-8 space-y-6" onSubmit={handleReset}>
           <div className="rounded-md shadow-sm space-y-4">
             <div>
               <label htmlFor="email-address" className="block text-sm font-medium text-gray-700 mb-1">
@@ -75,33 +68,12 @@ export default function LoginPage() {
                 onChange={(e) => setEmail(e.target.value)}
               />
             </div>
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
-                Password
-              </label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                autoComplete="current-password"
-                required
-                className="appearance-none relative block w-full px-3 py-3 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-yellow-500 focus:border-yellow-500 focus:z-10 sm:text-sm"
-                placeholder="********"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-            </div>
           </div>
 
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-center">
             <div className="text-sm">
-              <Link href="/register" className="font-medium text-yellow-600 hover:text-yellow-500">
-                Create an account
-              </Link>
-            </div>
-            <div className="text-sm">
-              <Link href="/forgot-password" className="font-medium text-yellow-600 hover:text-yellow-500">
-                Forgot your password?
+              <Link href="/login" className="font-medium text-yellow-600 hover:text-yellow-500">
+                Back to sign in
               </Link>
             </div>
           </div>
@@ -112,7 +84,7 @@ export default function LoginPage() {
               disabled={loading}
               className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-md text-black bg-yellow-400 hover:bg-yellow-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 disabled:opacity-50 transition-colors"
             >
-              {loading ? 'Signing in...' : 'Sign In'}
+              {loading ? 'Sending instructions...' : 'Reset Password'}
             </button>
           </div>
         </form>
