@@ -1,9 +1,13 @@
-import MapMockup from "@/components/MapMockup";
+'use client'
+
+import { useRouter } from 'next/navigation'
+import { useEffect } from 'react'
 
 export default function Home() {
-  return (
-    <main className="w-full h-[100dvh] bg-black">
-      <MapMockup />
-    </main>
-  );
+  const router = useRouter()
+  useEffect(() => {
+    router.replace('/login')
+  }, [router])
+
+  return null
 }
