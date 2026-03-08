@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useToast } from "@/context/ToastContext";
+import { useQuests } from "@/context/QuestContext";
 
 interface AttendanceDrawerProps {
   isOpen: boolean;
@@ -13,6 +14,7 @@ type VerificationStage = "idle" | "verifying" | "success" | "failed";
 
 export default function AttendanceDrawer({ isOpen, onClose }: AttendanceDrawerProps) {
   const { addToast } = useToast();
+  const { refreshData } = useQuests();
   const [hasSchedule, setHasSchedule] = useState(false);
   const [scheduleName, setScheduleName] = useState("");
   const [stage, setStage] = useState<VerificationStage>("idle");
@@ -27,18 +29,32 @@ export default function AttendanceDrawer({ isOpen, onClose }: AttendanceDrawerPr
   const handleCheckIn = async () => {
     setStage("verifying");
 
-    // Simulate location + time verification
-    await new Promise((r) => setTimeout(r, 2500));
+    try {
+      const res = await fetch("http://localhost:8000/api/attendance/check-in", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          class_name: scheduleName || "General Class",
+          schedule_image_url: "https://example.com/mock_schedule.png",
+          class_photo_url: "https://example.com/mock_photo.png",
+          building_zone_id: 1, // Fallback location
+          scheduled_start_time: new Date().toISOString(),
+        }),
+      });
 
-    // Randomly succeed for demo purposes (80% success rate)
-    const success = Math.random() > 0.2;
-
-    if (success) {
-      setStage("success");
-      addToast("+5 daily credits earned! 🎓", "reward");
-    } else {
+      if (res.ok) {
+        setStage("success");
+        addToast("+5 daily credits earned! 🎓", "reward");
+        await refreshData();
+      } else {
+        const errorData = await res.json();
+        setStage("failed");
+        addToast(errorData.detail || "Verification failed.", "error");
+      }
+    } catch (e) {
       setStage("failed");
-      addToast("Verification failed. Make sure you're in class.", "error");
+      addToast("Network error during check-in.", "error");
     }
 
     // Reset after delay

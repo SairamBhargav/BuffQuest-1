@@ -36,12 +36,12 @@ class Quest(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     creator_id: Mapped[str] = mapped_column(
         String,
-        ForeignKey("user.id", ondelete="CASCADE"),
+        ForeignKey("public.user.id", ondelete="CASCADE"),
         nullable=False,
     )
     hunter_id: Mapped[str | None] = mapped_column(
         String,
-        ForeignKey("user.id", ondelete="SET NULL"),
+        ForeignKey("public.user.id", ondelete="SET NULL"),
         nullable=True,
     )
     title: Mapped[str] = mapped_column(Text, nullable=False)

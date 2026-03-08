@@ -27,7 +27,7 @@ class Message(Base):
     )
     sender_id: Mapped[str] = mapped_column(
         String,
-        ForeignKey("user.id", ondelete="CASCADE"),
+        ForeignKey("public.user.id", ondelete="CASCADE"),
         nullable=False,
     )
     text: Mapped[str] = mapped_column(Text, nullable=False)

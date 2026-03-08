@@ -1,6 +1,6 @@
 """Auth endpoints - ``/auth/…``.
 
-Authentication is handled by Supabase Auth. These endpoints provide
+Authentication is handled by better-auth. These endpoints provide
 a backend passthrough for the frontend to verify session state.
 """
 
@@ -27,7 +27,7 @@ async def auth_me(
 ):
     """Return the currently authenticated user's profile.
 
-    The Supabase JWT is validated via ``get_current_user``,
+    The better-auth session is validated via ``get_current_user``,
     and this endpoint simply returns the matching profile row.
     """
     result = await db.execute(select(Profile).where(Profile.id == user_id))
