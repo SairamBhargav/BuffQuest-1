@@ -26,13 +26,26 @@ export const metadata: Metadata = {
     statusBarStyle: "black-translucent",
     title: "BuffQuest",
   },
+  other: {
+    "mobile-web-app-capable": "yes",
+    "apple-mobile-web-app-capable": "yes",
+    "apple-mobile-web-app-status-bar-style": "black-translucent",
+    "apple-mobile-web-app-title": "BuffQuest",
+    "format-detection": "telephone=no",
+  },
+  icons: {
+    icon: "/icon-512.png",
+    apple: "/icon-512.png",
+  },
 };
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
   viewportFit: "cover",
-  themeColor: "#0a0a0a",
+  themeColor: "#060a14",
 };
 
 import { Providers } from "./Providers";
