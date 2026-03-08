@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useCallback } from "react";
-import { motion, AnimatePresence, useMotionValue, PanInfo } from "framer-motion";
+import { motion, AnimatePresence, useMotionValue, useDragControls, PanInfo } from "framer-motion";
 import { useQuests } from "@/context/QuestContext";
 import { useToast } from "@/context/ToastContext";
 
@@ -96,6 +96,7 @@ export default function CreateQuestModal({ isOpen, onClose }: CreateQuestModalPr
   };
 
   const dragY = useMotionValue(0);
+  const dragControls = useDragControls();
 
   const handleDragEnd = useCallback((_e: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
     if (info.offset.y > 120 || info.velocity.y > 500) {
@@ -128,6 +129,8 @@ export default function CreateQuestModal({ isOpen, onClose }: CreateQuestModalPr
             exit={{ y: 800, opacity: 0.8 }}
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
             drag="y"
+            dragControls={dragControls}
+            dragListener={false}
             dragConstraints={{ top: 0, bottom: 0 }}
             dragElastic={{ top: 0, bottom: 0.6 }}
             onDragEnd={handleDragEnd}
@@ -135,7 +138,10 @@ export default function CreateQuestModal({ isOpen, onClose }: CreateQuestModalPr
             style={{ paddingBottom: 'max(var(--sab), 2rem)', y: dragY }}
           >
             {/* Drag Handle Bar */}
-            <div className="w-full flex justify-center pt-4 pb-2 cursor-grab active:cursor-grabbing touch-none">
+            <div
+              onPointerDown={(e) => dragControls.start(e)}
+              className="w-full flex justify-center pt-4 pb-2 cursor-grab active:cursor-grabbing touch-none"
+            >
               <div className="w-12 h-1.5 bg-white/30 rounded-full hover:bg-white/50 transition-colors" />
             </div>
 
