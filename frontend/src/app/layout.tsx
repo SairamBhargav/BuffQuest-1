@@ -20,6 +20,7 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "BuffQuest",
   description: "A location-based quest board for CU Boulder",
+  viewport: "width=device-width, initial-scale=1, viewport-fit=cover",
 };
 
 export default function RootLayout({
@@ -30,7 +31,8 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} ${inter.variable} font-sans antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} ${inter.variable} font-sans antialiased m-0 p-0 overflow-hidden`}
+        style={{ width: '100vw', height: '100dvh' }}
       >
         {children}
       </body>
