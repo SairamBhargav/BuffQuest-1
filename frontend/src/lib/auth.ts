@@ -16,8 +16,13 @@ const transporter = globalForAuth.transporter ?? nodemailer.createTransport({
     },
 });
 
+// The pg driver requires standard postgresql:// strings, so we normalize the URL 
+// in case it has been set with database async drivers (e.g. postgresql+asyncpg://)
+const rawDbUrl = process.env.DATABASE_URL || "";
+const pgDbUrl = rawDbUrl.replace("+asyncpg", "");
+
 const pool = globalForAuth.pool ?? new Pool({
-    connectionString: process.env.DATABASE_URL,
+    connectionString: pgDbUrl,
     max: 1, // important for serverless
     ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : undefined,
 });
