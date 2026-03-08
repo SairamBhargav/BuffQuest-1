@@ -8,6 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.core.security import get_current_user
 from app.models.quest import ModerationStatus, Quest, QuestStatus
 from app.schemas.quest import QuestCreate, QuestRead, QuestUpdate
 from app.schemas.reward import RewardResult
@@ -60,7 +61,7 @@ async def get_quest(
 @router.post("/", response_model=QuestRead, status_code=status.HTTP_201_CREATED)
 async def create_quest(
     payload: QuestCreate,
-    user_id: uuid.UUID,  # TODO: replace with Depends(get_current_user)
+    user_id: uuid.UUID = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Create a new quest (deducts cost_credits from creator)."""
@@ -95,7 +96,7 @@ async def create_quest(
 async def update_quest(
     quest_id: int,
     payload: QuestUpdate,
-    user_id: uuid.UUID,  # TODO: replace with Depends(get_current_user)
+    user_id: uuid.UUID = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Update a quest (only allowed while status is ``open``, creator only)."""
@@ -123,7 +124,7 @@ async def update_quest(
 @router.post("/{quest_id}/cancel", response_model=QuestRead)
 async def cancel_quest(
     quest_id: int,
-    user_id: uuid.UUID,  # TODO: replace with Depends(get_current_user)
+    user_id: uuid.UUID = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Cancel a quest (creator only, must be ``open`` or ``claimed``). Refunds credits."""
@@ -152,7 +153,7 @@ async def cancel_quest(
 @router.post("/{quest_id}/complete", response_model=QuestRead)
 async def complete_quest(
     quest_id: int,
-    user_id: uuid.UUID,  # TODO: replace with Depends(get_current_user)
+    user_id: uuid.UUID = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Mark a quest as completed (hunter only, must be ``claimed``)."""
@@ -178,7 +179,7 @@ async def complete_quest(
 @router.post("/{quest_id}/verify", response_model=QuestRead)
 async def verify_quest(
     quest_id: int,
-    user_id: uuid.UUID,  # TODO: replace with Depends(get_current_user)
+    user_id: uuid.UUID = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Verify a completed quest (creator only, must be ``completed``)."""

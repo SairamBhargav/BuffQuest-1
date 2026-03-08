@@ -7,6 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.core.security import get_current_user
 from app.models.message import Message
 from app.models.quest import Quest
 from app.schemas.message import MessageCreate, MessageRead
@@ -22,7 +23,7 @@ async def list_messages(
     quest_id: int,
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
-    user_id: uuid.UUID = ...,  # TODO: replace with Depends(get_current_user)
+    user_id: uuid.UUID = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """List chat messages for a quest.
@@ -54,7 +55,7 @@ async def list_messages(
 async def send_message(
     quest_id: int,
     payload: MessageCreate,
-    user_id: uuid.UUID = ...,  # TODO: replace with Depends(get_current_user)
+    user_id: uuid.UUID = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Send a chat message within an active quest session.
