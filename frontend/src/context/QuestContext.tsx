@@ -38,6 +38,7 @@ export interface UserProfile {
 }
 
 export interface LeaderboardEntry {
+  id: string;
   rank: number;
   name: string;
   notoriety: number;
@@ -156,9 +157,9 @@ export function QuestProvider({ children }: { children: ReactNode }) {
         setLeaderboard(Array.isArray(leaderboardData) ? leaderboardData : []);
       } else {
         setLeaderboard([
-          { rank: 1, name: "Chip", notoriety: 89, isYou: false, avatar: "👑" },
-          { rank: 2, name: "Ralphie", notoriety: 12, isYou: true, avatar: "🧑‍🎓" },
-          { rank: 3, name: "Alex", notoriety: 6, isYou: false, avatar: "🎒" }
+          { id: "chip-id", rank: 1, name: "Chip", notoriety: 89, isYou: false, avatar: "👑" },
+          { id: "ralphie-id", rank: 2, name: "Ralphie", notoriety: 12, isYou: true, avatar: "🧑‍🎓" },
+          { id: "alex-id", rank: 3, name: "Alex", notoriety: 6, isYou: false, avatar: "🎒" }
         ]);
       }
     } catch (e) {

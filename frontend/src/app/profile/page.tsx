@@ -282,7 +282,7 @@ export default function ProfilePage() {
             <div className="bg-white/[0.03] backdrop-blur-xl rounded-[28px] overflow-hidden border border-white/[0.06]">
               {leaderboard.map((entry, i) => (
                 <motion.div
-                  key={entry.rank}
+                  key={entry.id}
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: 0.4 + i * 0.07, type: "spring", stiffness: 260, damping: 22 }}
