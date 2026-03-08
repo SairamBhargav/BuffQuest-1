@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useCallback } from "react";
-import { motion, AnimatePresence, useMotionValue, useTransform, PanInfo } from "framer-motion";
+import { motion, AnimatePresence, useMotionValue, PanInfo } from "framer-motion";
 import { useQuests } from "@/context/QuestContext";
 import { useToast } from "@/context/ToastContext";
 
@@ -96,14 +96,20 @@ export default function CreateQuestModal({ isOpen, onClose }: CreateQuestModalPr
   };
 
   const dragY = useMotionValue(0);
-  const backdropOpacity = useTransform(dragY, [0, 300], [1, 0]);
 
-  const handleDragEnd = useCallback((_: any, info: PanInfo) => {
-    // If dragged down past 120px or with enough velocity, dismiss
+  const handleDragEnd = useCallback((_e: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
     if (info.offset.y > 120 || info.velocity.y > 500) {
+      dragY.set(0);
       onClose();
     }
-  }, [onClose]);
+  }, [onClose, dragY]);
+
+  // Reset dragY whenever the modal reopens
+  React.useEffect(() => {
+    if (isOpen) {
+      dragY.set(0);
+    }
+  }, [isOpen, dragY]);
 
   return (
     <AnimatePresence>
@@ -114,16 +120,15 @@ export default function CreateQuestModal({ isOpen, onClose }: CreateQuestModalPr
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            style={{ opacity: backdropOpacity }}
             onClick={onClose}
             className="absolute inset-0 bg-black/60 backdrop-blur-sm pointer-events-auto"
           />
 
           {/* Modal Container — Draggable */}
           <motion.div
-            initial={{ y: "100%", opacity: 0.8 }}
+            initial={{ y: 800, opacity: 0.8 }}
             animate={{ y: 0, opacity: 1 }}
-            exit={{ y: "100%", opacity: 0.8 }}
+            exit={{ y: 800, opacity: 0.8 }}
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
             drag="y"
             dragConstraints={{ top: 0, bottom: 0 }}
