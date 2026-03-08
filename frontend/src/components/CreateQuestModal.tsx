@@ -42,32 +42,52 @@ export default function CreateQuestModal({ isOpen, onClose }: CreateQuestModalPr
     setModerationError("");
 
     try {
-      const response = await fetch('/api/quests', {
+      // 1. Check Moderation (Next.js API)
+      const modResponse = await fetch('/api/quests', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, description })
+      });
+
+      const modData = await modResponse.json();
+
+      if (!modResponse.ok) {
+        setModerationError(modData.error || "Quest flagged by AI moderation. Please revise your quest.");
+        setIsSubmitting(false);
+        return;
+      }
+
+      // 2. Call the Real Backend API (FastAPI) to create the quest
+      // In a real app we would pass JWT or session cookie headers
+      const beResponse = await fetch('http://localhost:8000/api/quests/', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          // Assuming authorization header or cookie is handled via interceptors or proxy in real app; 
+          // For now, testing environment. Better-Auth sets cookie automatically if we proxy or if CORS is set up with credentials.
+        },
         body: JSON.stringify({
           title,
           description,
-          buildingId: zoneIndex,
-          rewardCredits: bounty,
-          creatorId: user.id,
-          skipDb: true
+          building_zone_id: zoneIndex, // Backend expects building_zone_id
+          cost_credits: bounty,
+          reward_credits: bounty,
+          reward_notoriety: 0,
         })
       });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        setModerationError(data.error || "Quest flagged by AI moderation. Please revise your quest.");
+      if (!beResponse.ok) {
+        setModerationError("Failed to deploy quest to backend.");
         setIsSubmitting(false);
         return;
       }
     } catch (err) {
-      setModerationError("Could not connect to AI moderation server.");
+      setModerationError("Network error occurred.");
       setIsSubmitting(false);
       return;
     }
 
+    // Still add to local React state for immediate UI feedback
     const result = addQuest({
       title,
       description,

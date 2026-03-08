@@ -1,15 +1,9 @@
 import { NextResponse } from 'next/server';
 import { GoogleGenAI } from '@google/genai';
-import { Pool } from 'pg';
 
 // Initialize Gemini client
 const gemini = new GoogleGenAI({ 
   apiKey: process.env.GEMINI_API_KEY || 'dummy_key_for_build' 
-});
-
-// Initialize Postgres connection (Neon)
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL
 });
 
 export async function POST(request: Request) {
@@ -64,19 +58,8 @@ Return ONLY valid JSON in this exact format:
       );
     }
 
-    // STEP 3: Insert into Neon Database
-    if (skipDb || !process.env.DATABASE_URL) {
-      return NextResponse.json({ success: true, quest: { id: "mock", title } }, { status: 201 });
-    }
-
-    const { rows } = await pool.query(
-      `INSERT INTO quests (title, description, building_id, reward_credits, creator_id, status)
-       VALUES ($1, $2, $3, $4, $5, 'open')
-       RETURNING *`,
-      [title, description, buildingId, rewardCredits, creatorId]
-    );
-
-    return NextResponse.json({ success: true, quest: rows[0] }, { status: 201 });
+    // If approved, return success so the frontend can dispatch to the backend API
+    return NextResponse.json({ success: true, moderation_passed: true }, { status: 200 });
 
   } catch (error: unknown) {
     console.error("API processing error:", error);
