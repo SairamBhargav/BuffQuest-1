@@ -12,7 +12,14 @@ from app.models.building_zone import BuildingZone
 from app.models.quest import ModerationStatus, Quest, QuestStatus
 from app.schemas.quest import QuestCreate, QuestRead, QuestUpdate
 from app.schemas.reward import RewardResult
-from app.services.reward_service import deduct_quest_cost, issue_reward, refund_quest
+from app.services.quest_service import (
+    cancel_quest_service,
+    complete_quest_service,
+    create_quest_service,
+    update_quest_service,
+    verify_quest_service,
+)
+from app.services.reward_service import issue_reward
 
 router = APIRouter(prefix="/quests", tags=["quests"])
 
@@ -87,25 +94,8 @@ async def create_quest(
     db: AsyncSession = Depends(get_db),
 ):
     """Create a new quest (deducts cost_credits from creator)."""
-    quest = Quest(
-        creator_id=user_id,
-        title=payload.title,
-        description=payload.description,
-        building_zone_id=payload.building_zone_id,
-        cost_credits=payload.cost_credits,
-        reward_credits=payload.reward_credits,
-        reward_notoriety=payload.reward_notoriety,
-        expires_at=payload.expires_at,
-        status=QuestStatus.OPEN,
-        moderation_status=ModerationStatus.PENDING,
-    )
-    db.add(quest)
-    await db.flush()  # get quest.id before logging
-
-    # Deduct credits from creator (raises 402 if insufficient)
-    if quest.cost_credits > 0:
-        await deduct_quest_cost(db, user_id, quest)
-
+    quest = await create_quest_service(db, user_id, payload)
+    
     await db.commit()
     await db.refresh(quest)
     return quest
@@ -122,19 +112,8 @@ async def update_quest(
     db: AsyncSession = Depends(get_db),
 ):
     """Update a quest (only allowed while status is ``open``, creator only)."""
-    result = await db.execute(select(Quest).where(Quest.id == quest_id))
-    quest = result.scalar_one_or_none()
-    if quest is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Quest not found")
-    if quest.creator_id != user_id:
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "Not the quest creator")
-    if quest.status != QuestStatus.OPEN:
-        raise HTTPException(status.HTTP_409_CONFLICT, "Quest is no longer open")
-
-    update_data = payload.model_dump(exclude_unset=True)
-    for field, value in update_data.items():
-        setattr(quest, field, value)
-
+    quest = await update_quest_service(db, quest_id, user_id, payload)
+    
     await db.commit()
     await db.refresh(quest)
     return quest
@@ -150,20 +129,8 @@ async def cancel_quest(
     db: AsyncSession = Depends(get_db),
 ):
     """Cancel a quest (creator only, must be ``open`` or ``claimed``). Refunds credits."""
-    result = await db.execute(select(Quest).where(Quest.id == quest_id))
-    quest = result.scalar_one_or_none()
-    if quest is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Quest not found")
-    if quest.creator_id != user_id:
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "Not the quest creator")
-    if quest.status not in (QuestStatus.OPEN, QuestStatus.CLAIMED):
-        raise HTTPException(status.HTTP_409_CONFLICT, "Quest cannot be cancelled in its current state")
-
-    quest.status = QuestStatus.CANCELLED
-
-    # Refund cost_credits to creator
-    await refund_quest(db, quest)
-
+    quest = await cancel_quest_service(db, quest_id, user_id)
+    
     await db.commit()
     await db.refresh(quest)
     return quest
@@ -179,17 +146,8 @@ async def complete_quest(
     db: AsyncSession = Depends(get_db),
 ):
     """Mark a quest as completed (hunter only, must be ``claimed``)."""
-    result = await db.execute(select(Quest).where(Quest.id == quest_id))
-    quest = result.scalar_one_or_none()
-    if quest is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Quest not found")
-    if quest.hunter_id != user_id:
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "Not the quest hunter")
-    if quest.status != QuestStatus.CLAIMED:
-        raise HTTPException(status.HTTP_409_CONFLICT, "Quest is not currently claimed")
-
-    quest.status = QuestStatus.COMPLETED
-    quest.completed_at = datetime.now(timezone.utc)
+    quest = await complete_quest_service(db, quest_id, user_id)
+    
     await db.commit()
     await db.refresh(quest)
     return quest
@@ -205,17 +163,8 @@ async def verify_quest(
     db: AsyncSession = Depends(get_db),
 ):
     """Verify a completed quest (creator only, must be ``completed``)."""
-    result = await db.execute(select(Quest).where(Quest.id == quest_id))
-    quest = result.scalar_one_or_none()
-    if quest is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Quest not found")
-    if quest.creator_id != user_id:
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "Not the quest creator")
-    if quest.status != QuestStatus.COMPLETED:
-        raise HTTPException(status.HTTP_409_CONFLICT, "Quest is not in completed state")
-
-    quest.status = QuestStatus.VERIFIED
-    quest.verified_at = datetime.now(timezone.utc)
+    quest = await verify_quest_service(db, quest_id, user_id)
+    
     await db.commit()
     await db.refresh(quest)
     return quest

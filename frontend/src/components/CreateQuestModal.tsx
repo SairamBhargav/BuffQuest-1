@@ -25,6 +25,8 @@ export default function CreateQuestModal({ isOpen, onClose }: CreateQuestModalPr
   const { addQuest, user } = useQuests();
   const { addToast } = useToast();
 
+  if (!user) return null;
+
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [bounty, setBounty] = useState(10);
@@ -68,7 +70,7 @@ export default function CreateQuestModal({ isOpen, onClose }: CreateQuestModalPr
       return;
     }
 
-    const result = addQuest({
+    const result = await addQuest({
       title,
       description,
       bounty,
