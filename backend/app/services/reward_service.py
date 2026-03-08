@@ -41,7 +41,7 @@ async def deduct_quest_cost(
 
     log = RewardLog(
         user_id=creator_id,
-        source_type=RewardSourceType.QUEST_POST,
+        source_type=RewardSourceType.quest_post,
         source_id=quest.id,
         credit_delta=-quest.cost_credits,
         notoriety_delta=0,
@@ -61,7 +61,7 @@ async def issue_reward(
     if the quest is not in ``VERIFIED`` status or has already been
     rewarded (idempotency guard).
     """
-    if quest.status != QuestStatus.VERIFIED:
+    if quest.status != QuestStatus.verified:
         raise HTTPException(
             status.HTTP_409_CONFLICT,
             "Quest must be in 'verified' status to issue rewards",
@@ -83,12 +83,12 @@ async def issue_reward(
     hunter.notoriety += quest.reward_notoriety
 
     # Transition quest to REWARDED
-    quest.status = QuestStatus.REWARDED
+    quest.status = QuestStatus.rewarded
     quest.rewarded_at = datetime.now(timezone.utc)
 
     log = RewardLog(
         user_id=quest.hunter_id,
-        source_type=RewardSourceType.QUEST_COMPLETION,
+        source_type=RewardSourceType.quest_completion,
         source_id=quest.id,
         credit_delta=quest.reward_credits,
         notoriety_delta=quest.reward_notoriety,
@@ -119,7 +119,7 @@ async def refund_quest(
 
     log = RewardLog(
         user_id=quest.creator_id,
-        source_type=RewardSourceType.QUEST_REFUND,
+        source_type=RewardSourceType.quest_refund,
         source_id=quest.id,
         credit_delta=quest.cost_credits,
         notoriety_delta=0,

@@ -5,13 +5,14 @@ from fastapi import HTTPException, status
 from pydantic import BaseModel
 
 class QuestStatus(str, Enum):
-    OPEN = "open"
-    CLAIMED = "claimed"
-    COMPLETED = "completed"
-    VERIFIED = "verified"
-    REWARDED = "rewarded"
-    CANCELLED = "cancelled"
-    EXPIRED = "expired"
+class QuestStatus(str, Enum):
+    open = "open"
+    claimed = "claimed"
+    completed = "completed"
+    verified = "verified"
+    rewarded = "rewarded"
+    cancelled = "cancelled"
+    expired = "expired"
 
 
 class QuestMachineState(BaseModel):
@@ -19,7 +20,7 @@ class QuestMachineState(BaseModel):
     creator_id: str
     title: str
     description: str
-    status: QuestStatus = QuestStatus.OPEN
+    status: QuestStatus = QuestStatus.open
     created_at: datetime
     hunter_id: Optional[str] = None
     claimed_at: Optional[datetime] = None
@@ -39,7 +40,7 @@ def claim_quest(quest_id: str, user_id: str) -> QuestMachineState:
 
     quest = quest_db[quest_id]
 
-    if quest.status != QuestStatus.OPEN:
+    if quest.status != QuestStatus.open:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Quest is not open for claiming")
 
     if quest.creator_id == user_id:
@@ -47,7 +48,7 @@ def claim_quest(quest_id: str, user_id: str) -> QuestMachineState:
 
     # Update quest state
     quest.hunter_id = user_id
-    quest.status = QuestStatus.CLAIMED
+    quest.status = QuestStatus.claimed
     quest.claimed_at = datetime.utcnow()
 
     return quest
@@ -62,14 +63,14 @@ def complete_quest(quest_id: str, user_id: str) -> QuestMachineState:
 
     quest = quest_db[quest_id]
 
-    if quest.status != QuestStatus.CLAIMED:
+    if quest.status != QuestStatus.claimed:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Quest is not claimed")
 
     if quest.hunter_id != user_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only the assigned hunter can complete this quest")
 
     # Update quest state
-    quest.status = QuestStatus.COMPLETED
+    quest.status = QuestStatus.completed
     quest.completed_at = datetime.utcnow()
 
     return quest

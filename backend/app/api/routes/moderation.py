@@ -36,7 +36,7 @@ async def review_quest(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Quest not found")
 
     # TODO: call AI moderation service here
-    quest.moderation_status = ModerationStatus.APPROVED
+    quest.moderation_status = ModerationStatus.approved
     quest.moderation_reason = None
     await db.commit()
 

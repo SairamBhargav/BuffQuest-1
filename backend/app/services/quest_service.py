@@ -25,8 +25,8 @@ async def create_quest_service(
         reward_credits=payload.reward_credits,
         reward_notoriety=payload.reward_notoriety,
         expires_at=payload.expires_at,
-        status=QuestStatus.OPEN,
-        moderation_status=payload.moderation_status or ModerationStatus.PENDING,
+        status=QuestStatus.open,
+        moderation_status=payload.moderation_status or ModerationStatus.pending,
     )
     db.add(quest)
     await db.flush()  # get quest.id before logging
@@ -50,7 +50,7 @@ async def update_quest_service(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Quest not found")
     if quest.creator_id != user_id:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Not the quest creator")
-    if quest.status != QuestStatus.OPEN:
+    if quest.status != QuestStatus.open:
         raise HTTPException(status.HTTP_409_CONFLICT, "Quest is no longer open")
 
     update_data = payload.model_dump(exclude_unset=True)
@@ -72,10 +72,10 @@ async def cancel_quest_service(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Quest not found")
     if quest.creator_id != user_id:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Not the quest creator")
-    if quest.status not in (QuestStatus.OPEN, QuestStatus.CLAIMED):
+    if quest.status not in (QuestStatus.open, QuestStatus.claimed):
         raise HTTPException(status.HTTP_409_CONFLICT, "Quest cannot be cancelled in its current state")
 
-    quest.status = QuestStatus.CANCELLED
+    quest.status = QuestStatus.cancelled
     await refund_quest(db, quest)
 
     return quest
@@ -93,10 +93,10 @@ async def complete_quest_service(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Quest not found")
     if quest.hunter_id != user_id:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Not the quest hunter")
-    if quest.status != QuestStatus.CLAIMED:
+    if quest.status != QuestStatus.claimed:
         raise HTTPException(status.HTTP_409_CONFLICT, "Quest is not currently claimed")
 
-    quest.status = QuestStatus.COMPLETED
+    quest.status = QuestStatus.completed
     quest.completed_at = datetime.now(timezone.utc)
     return quest
 
@@ -113,9 +113,9 @@ async def verify_quest_service(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Quest not found")
     if quest.creator_id != user_id:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Not the quest creator")
-    if quest.status != QuestStatus.COMPLETED:
+    if quest.status != QuestStatus.completed:
         raise HTTPException(status.HTTP_409_CONFLICT, "Quest is not in completed state")
 
-    quest.status = QuestStatus.VERIFIED
+    quest.status = QuestStatus.verified
     quest.verified_at = datetime.now(timezone.utc)
     return quest

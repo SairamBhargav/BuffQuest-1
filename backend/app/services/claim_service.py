@@ -31,7 +31,7 @@ async def process_quest_claim(
     if target_quest.creator_id == user_id:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Cannot claim your own quest")
         
-    if target_quest.status != QuestStatus.OPEN or target_quest.hunter_id is not None:
+    if target_quest.status != QuestStatus.open or target_quest.hunter_id is not None:
         raise HTTPException(status.HTTP_409_CONFLICT, "Quest is no longer available for claiming")
         
     # 3. Verify physical proximity using the Haversine Service
@@ -48,12 +48,12 @@ async def process_quest_claim(
         update(Quest)
         .where(
             Quest.id == quest_id,
-            Quest.status == QuestStatus.OPEN,
+            Quest.status == QuestStatus.open,
             Quest.hunter_id.is_(None)
         )
         .values(
             hunter_id=user_id,
-            status=QuestStatus.CLAIMED,
+            status=QuestStatus.claimed,
             claimed_at=datetime.now(timezone.utc),
         )
         .returning(Quest)

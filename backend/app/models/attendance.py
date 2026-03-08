@@ -10,9 +10,9 @@ from app.core.database import Base
 
 
 class AttendanceVerificationStatus(str, enum.Enum):
-    PENDING = "pending"
-    APPROVED = "approved"
-    REJECTED = "rejected"
+    pending = "pending"
+    approved = "approved"
+    rejected = "rejected"
 
 
 class AttendanceSubmission(Base):
@@ -44,7 +44,7 @@ class AttendanceSubmission(Base):
     verification_status: Mapped[AttendanceVerificationStatus] = mapped_column(
         Enum(AttendanceVerificationStatus, name="attendance_verification_status", schema="public", create_type=False),
         nullable=False,
-        default=AttendanceVerificationStatus.PENDING,
+        default=AttendanceVerificationStatus.pending,
     )
     reward_issued: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False

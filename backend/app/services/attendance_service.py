@@ -26,7 +26,7 @@ async def process_attendance_checkin(
             AttendanceSubmission.user_id == user_id,
             AttendanceSubmission.class_name == payload.class_name,
             func.date(AttendanceSubmission.submission_time) == today,
-            AttendanceSubmission.verification_status == AttendanceVerificationStatus.APPROVED
+            AttendanceSubmission.verification_status == AttendanceVerificationStatus.approved
         )
     )
     result = await db.execute(stmt)
@@ -62,7 +62,7 @@ async def process_attendance_checkin(
         class_name=payload.class_name,
         building_zone_id=payload.building_zone_id,
         scheduled_start_time=payload.scheduled_start_time,
-        verification_status=AttendanceVerificationStatus.APPROVED,
+        verification_status=AttendanceVerificationStatus.approved,
         reward_issued=True,
     )
     db.add(submission)
@@ -71,7 +71,7 @@ async def process_attendance_checkin(
     profile.credits += 5
     reward_log = RewardLog(
         user_id=user_id,
-        source_type=RewardSourceType.ATTENDANCE_REWARD,
+        source_type=RewardSourceType.attendance_reward,
         credit_delta=5,
         notoriety_delta=0
     )

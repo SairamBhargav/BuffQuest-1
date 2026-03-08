@@ -53,7 +53,7 @@ export async function POST(request: Request) {
       }
     });
 
-    const prompt = `You are the automated moderator for 'BuffQuest'. 
+    const prompt = `You are the automated moderator for 'BuffQuest'. Analyze reasonable requests such as grabbing items from across campus. 
 Analyze this quest submission:
 Title: ${title}
 Description: ${description}
@@ -76,27 +76,18 @@ Return ONLY valid JSON in this exact format:
       );
     }
 
-    // 2. Database Insertion (Neon)
-    if (skipDb) {
-      return NextResponse.json({ success: true, quest: { id: "mock-123", title, status: 'open' } }, { status: 201 });
+    // 2. Database Insertion (NEXT.js ROUTE SHOULD NOT WRITE TO DB)
+    // We strictly use the FastAPI backend for all database writes to ensure 
+    // consistency across Enums, rewards, and constraints.
+    if (!skipDb) {
+      console.warn("DB write attempted via /api/quests route. Redirecting to FastAPI logic is recommended.");
     }
 
-    const dbPool = getPool();
-    if (!dbPool) {
-      return NextResponse.json({ error: "Database connection error (Missing URL)." }, { status: 500 });
-    }
-
-    // NOTE: In our schema, the column is 'building_zone_id', NOT 'building_id'
-    const query = `
-      INSERT INTO quests (title, description, building_zone_id, reward_credits, creator_id, status)
-      VALUES ($1, $2, $3, $4, $5, 'open')
-      RETURNING *
-    `;
-    const params = [title, description, buildingId, rewardCredits || 0, creatorId];
-
-    const { rows } = await dbPool.query(query, params);
-
-    return NextResponse.json({ success: true, quest: rows[0] }, { status: 201 });
+    return NextResponse.json({ 
+      success: true, 
+      moderation: { is_approved: true },
+      note: "Quest approved by AI. Final insertion should be handled by the FastAPI backend."
+    }, { status: 201 });
 
   } catch (error: any) {
     console.error("Critical API Error in /api/quests:", error);

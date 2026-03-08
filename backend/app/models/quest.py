@@ -3,7 +3,7 @@
 import enum
 from datetime import datetime
 
-from sqlalchemy import BigInteger, DateTime, Enum, ForeignKey, Integer, String, Text, func
+from sqlalchemy import BigInteger, DateTime, Enum, ForeignKey, Integer, String, Text, func, CheckConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -11,26 +11,35 @@ from app.core.database import Base
 
 # ── enums (mirror Postgres enums) ────────────────────────────
 class QuestStatus(str, enum.Enum):
-    OPEN = "open"
-    CLAIMED = "claimed"
-    COMPLETED = "completed"
-    VERIFIED = "verified"
-    REWARDED = "rewarded"
-    CANCELLED = "cancelled"
-    EXPIRED = "expired"
+    open = "open"
+    claimed = "claimed"
+    completed = "completed"
+    verified = "verified"
+    rewarded = "rewarded"
+    cancelled = "cancelled"
+    expired = "expired"
 
 
 class ModerationStatus(str, enum.Enum):
-    PENDING = "pending"
-    APPROVED = "approved"
-    REJECTED = "rejected"
+    pending = "pending"
+    approved = "approved"
+    rejected = "rejected"
 
 
 class Quest(Base):
     """Maps to ``public.quests``."""
 
     __tablename__ = "quests"
-    __table_args__ = {"schema": "public"}
+    __table_args__ = (
+        CheckConstraint("creator_id != hunter_id", name="check_creator_not_hunter"),
+        CheckConstraint(
+            "(status = 'open' AND hunter_id IS NULL) OR "
+            "(status IN ('claimed', 'completed', 'verified') AND hunter_id IS NOT NULL) OR "
+            "(status IN ('cancelled', 'expired'))",
+            name="check_status_hunter_parity"
+        ),
+        {"schema": "public"},
+    )
 
     # ── columns ──────────────────────────────────────────────
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
@@ -61,14 +70,14 @@ class Quest(Base):
         Integer, nullable=False, default=0
     )
     status: Mapped[QuestStatus] = mapped_column(
-        Enum(QuestStatus, name="quest_status", schema="public", create_type=False, values_callable=lambda x: [e.value for e in x]),
+        Enum(QuestStatus, name="quest_status", schema="public", create_type=False),
         nullable=False,
-        default=QuestStatus.OPEN,
+        default=QuestStatus.open,
     )
     moderation_status: Mapped[ModerationStatus] = mapped_column(
-        Enum(ModerationStatus, name="moderation_status", schema="public", create_type=False, values_callable=lambda x: [e.value for e in x]),
+        Enum(ModerationStatus, name="moderation_status", schema="public", create_type=False),
         nullable=False,
-        default=ModerationStatus.PENDING,
+        default=ModerationStatus.pending,
     )
     moderation_reason: Mapped[str | None] = mapped_column(Text)
 
