@@ -1,4 +1,4 @@
-"""SQLAlchemy model for the ``profiles`` table."""
+"""SQLAlchemy model for the ``user`` table."""
 
 from datetime import datetime
 

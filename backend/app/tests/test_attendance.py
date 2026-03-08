@@ -46,11 +46,15 @@ async def test_check_in_success(mock_user, mock_db, client):
     # db.refresh() is called after commit — simulate what the DB would
     # return by filling in server-defaulted columns on the ORM object.
     def _fake_add(obj, *args, **kwargs):
-        obj.id = 1
-        obj.submission_time = datetime.now(timezone.utc)
-        obj.verification_status = AttendanceVerificationStatus.PENDING
-        obj.reward_issued = False
-        obj.created_at = datetime.now(timezone.utc)
+        if type(obj).__name__ == "AttendanceSubmission":
+            obj.id = 1
+            obj.submission_time = datetime.now(timezone.utc)
+            obj.verification_status = AttendanceVerificationStatus.APPROVED
+            obj.reward_issued = True
+            obj.created_at = datetime.now(timezone.utc)
+        else:
+            obj.id = 2
+            obj.created_at = datetime.now(timezone.utc)
 
     mock_db.add = MagicMock(side_effect=_fake_add)
 
@@ -113,3 +117,52 @@ async def test_get_attendance_history_pagination(mock_user, mock_db, client):
     assert resp.status_code == 200
     data = resp.json()
     assert len(data) == 1
+
+
+async def test_check_in_duplicate_rejects(mock_user, mock_db, client):
+    """POST /attendance/check-in rejects duplicate check-ins for the same class today."""
+    dup_result = MagicMock()
+    # Mocking that a submission already exists
+    dup_result.scalars.return_value.first.return_value = _make_submission(1)
+    mock_db.execute.return_value = dup_result
+
+    resp = await client.post(
+        "/api/attendance/check-in",
+        json={
+            "schedule_image_url": "https://example.com/schedule.png",
+            "class_photo_url": "https://example.com/photo.png",
+            "class_name": "CSCI 3104",
+            "building_zone_id": 1,
+            "scheduled_start_time": datetime.now(timezone.utc).isoformat(),
+        },
+    )
+
+    assert resp.status_code == 409
+    assert "already checked into" in resp.json()["detail"]
+    mock_db.add.assert_not_called()
+
+
+async def test_check_in_missing_profile_rejects(mock_user, mock_db, client):
+    """POST /attendance/check-in returns 404 if profile lookup fails before saving."""
+    dup_result = MagicMock()
+    dup_result.scalars.return_value.first.return_value = None
+
+    profile_result = MagicMock()
+    profile_result.scalar_one_or_none.return_value = None  # Missing profile
+
+    mock_db.execute.side_effect = [dup_result, profile_result]
+
+    resp = await client.post(
+        "/api/attendance/check-in",
+        json={
+            "schedule_image_url": "https://example.com/schedule.png",
+            "class_photo_url": "https://example.com/photo.png",
+            "class_name": "CSCI 3104",
+            "building_zone_id": 1,
+            "scheduled_start_time": datetime.now(timezone.utc).isoformat(),
+        },
+    )
+
+    assert resp.status_code == 404
+    assert resp.json()["detail"] == "User profile not found."
+    mock_db.add.assert_not_called()

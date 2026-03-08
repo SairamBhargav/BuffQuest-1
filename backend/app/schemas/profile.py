@@ -20,8 +20,6 @@ class ProfileRead(BaseModel):
     image: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
-    createdAt: datetime | None = None
-    updatedAt: datetime | None = None
 
 
 class ProfileUpdate(BaseModel):

@@ -52,6 +52,15 @@ async def check_in(
             detail=f"You have already checked into '{payload.class_name}' today."
         )
 
+    # Ensure profile exists before issuing rewards and saving submission
+    result_profile = await db.execute(select(Profile).where(Profile.id == user_id))
+    profile = result_profile.scalar_one_or_none()
+    if not profile:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User profile not found."
+        )
+
     submission = AttendanceSubmission(
         user_id=user_id,
         schedule_image_url=payload.schedule_image_url,
@@ -65,17 +74,14 @@ async def check_in(
     db.add(submission)
     
     # Award credits and add reward log
-    result_profile = await db.execute(select(Profile).where(Profile.id == user_id))
-    profile = result_profile.scalar_one_or_none()
-    if profile:
-        profile.credits += 5
-        reward_log = RewardLog(
-            user_id=user_id,
-            source_type=RewardSourceType.ATTENDANCE_REWARD,
-            credit_delta=5,
-            notoriety_delta=0
-        )
-        db.add(reward_log)
+    profile.credits += 5
+    reward_log = RewardLog(
+        user_id=user_id,
+        source_type=RewardSourceType.ATTENDANCE_REWARD,
+        credit_delta=5,
+        notoriety_delta=0
+    )
+    db.add(reward_log)
 
     await db.commit()
     await db.refresh(submission)

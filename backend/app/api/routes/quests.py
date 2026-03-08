@@ -227,7 +227,7 @@ async def verify_quest(
 @router.post("/{quest_id}/reward", response_model=RewardResult)
 async def reward_quest(
     quest_id: int,
-    user_id: str,  # TODO: replace with Depends(get_current_user)
+    user_id: str = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Issue rewards for a verified quest (creator only).
