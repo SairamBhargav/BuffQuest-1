@@ -11,14 +11,14 @@ interface CreateQuestModalProps {
 }
 
 const CAMPUS_ZONES = [
-  { name: "Norlin Library", lng: -105.2730, lat: 40.0085 },
-  { name: "Duane Physics", lng: -105.2670, lat: 40.0060 },
-  { name: "UMC", lng: -105.2720, lat: 40.0050 },
-  { name: "Engineering Center", lng: -105.2635, lat: 40.0070 },
-  { name: "C4C", lng: -105.2635, lat: 40.0043 },
-  { name: "Rec Center", lng: -105.2680, lat: 40.0090 },
-  { name: "ATLAS", lng: -105.2630, lat: 40.0065 },
-  { name: "SEEC", lng: -105.2410, lat: 40.0095 },
+  { id: 1, name: "Norlin Library", lng: -105.2730, lat: 40.0085 },
+  { id: 2, name: "Duane Physics", lng: -105.2670, lat: 40.0060 },
+  { id: 3, name: "UMC", lng: -105.2720, lat: 40.0050 },
+  { id: 4, name: "Engineering Center", lng: -105.2635, lat: 40.0070 },
+  { id: 5, name: "C4C", lng: -105.2635, lat: 40.0043 },
+  { id: 6, name: "Rec Center", lng: -105.2680, lat: 40.0090 },
+  { id: 7, name: "ATLAS", lng: -105.2630, lat: 40.0065 },
+  { id: 8, name: "SEEC", lng: -105.2410, lat: 40.0095 },
 ];
 
 export default function CreateQuestModal({ isOpen, onClose }: CreateQuestModalProps) {
@@ -42,32 +42,51 @@ export default function CreateQuestModal({ isOpen, onClose }: CreateQuestModalPr
     setModerationError("");
 
     try {
-      const response = await fetch('/api/quests', {
+      // 1. Check Moderation (Next.js API)
+      const modResponse = await fetch('/api/quests', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, description })
+      });
+
+      const modData = await modResponse.json();
+
+      if (!modResponse.ok) {
+        setModerationError(modData.error || "Quest flagged by AI moderation. Please revise your quest.");
+        setIsSubmitting(false);
+        return;
+      }
+
+      // 2. Call the Real Backend API (FastAPI) to create the quest
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const beResponse = await fetch(`${apiUrl}/api/quests/`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include', // Send cookies (like better-auth session) to backend
         body: JSON.stringify({
           title,
           description,
-          buildingId: zoneIndex,
-          rewardCredits: bounty,
-          creatorId: user.id,
-          skipDb: true
+          building_zone_id: selectedZone.id, // Use the actual DB ID, not the array index
+          cost_credits: bounty,
+          reward_credits: bounty,
+          reward_notoriety: 0,
         })
       });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        setModerationError(data.error || "Quest flagged by AI moderation. Please revise your quest.");
+      if (!beResponse.ok) {
+        setModerationError("Failed to deploy quest to backend.");
         setIsSubmitting(false);
         return;
       }
     } catch (err) {
-      setModerationError("Could not connect to AI moderation server.");
+      setModerationError("Network error occurred.");
       setIsSubmitting(false);
       return;
     }
 
+    // Still add to local React state for immediate UI feedback
     const result = addQuest({
       title,
       description,
