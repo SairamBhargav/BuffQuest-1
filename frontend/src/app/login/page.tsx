@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
+import { authClient } from '@/lib/auth-client'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
@@ -12,7 +12,6 @@ export default function LoginPage() {
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
   const router = useRouter()
-  const supabase = createClient()
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -28,13 +27,13 @@ export default function LoginPage() {
     }
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { error } = await authClient.signIn.email({
         email,
         password,
       })
 
       if (error) {
-        setError(error.message)
+        setError(error.message || 'An error occurred during sign in.')
       } else {
         setMessage('Successfully logged in! Redirecting...')
         router.push('/map')

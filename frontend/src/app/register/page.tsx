@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
+import { authClient } from '@/lib/auth-client'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
@@ -13,7 +13,6 @@ export default function RegisterPage() {
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
   const router = useRouter()
-  const supabase = createClient()
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -35,23 +34,26 @@ export default function RegisterPage() {
     }
 
     try {
-      const { error } = await supabase.auth.signUp({
+      const { error } = await authClient.signUp.email({
         email,
         password,
-        options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
-        },
+        name: email.split('@')[0], // Generate a default name from the email
       })
 
       if (error) {
-        setError(error.message)
+        setError(error.message || 'Registration failed')
       } else {
-        setMessage('Registration successful! Please check your email to verify your account.')
+        setMessage('Registration successful! Redirecting to the map...')
+        setTimeout(() => {
+          router.push('/map')
+        }, 1500)
       }
     } catch (err) {
       setError('An unexpected error occurred. Please try again.')
     } finally {
-      setLoading(false)
+      if (!message) {
+        setLoading(false)
+      }
     }
   }
 

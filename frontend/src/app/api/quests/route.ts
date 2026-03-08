@@ -1,17 +1,16 @@
 import { NextResponse } from 'next/server';
 import { GoogleGenAI } from '@google/genai';
-import { createClient } from '@supabase/supabase-js';
+import { Pool } from 'pg';
 
 // Initialize Gemini client
 const gemini = new GoogleGenAI({ 
   apiKey: process.env.GEMINI_API_KEY || 'dummy_key_for_build' 
 });
 
-// Initialize Supabase Admin client (bypasses RLS to insert verified quests)
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder-test-do-not-use.supabase.co";
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "placeholder-key-for-testing-only";
-
-const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+// Initialize Postgres connection (Neon)
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL
+});
 
 export async function POST(request: Request) {
   try {
@@ -65,32 +64,19 @@ Return ONLY valid JSON in this exact format:
       );
     }
 
-    // STEP 3: Insert into Supabase database
-    if (supabaseUrl === "https://placeholder-test-do-not-use.supabase.co") {
+    // STEP 3: Insert into Neon Database
+    if (!process.env.DATABASE_URL) {
       return NextResponse.json({ success: true, quest: { id: "mock", title } }, { status: 201 });
     }
 
-    const { data, error } = await supabaseAdmin
-      .from('quests')
-      .insert([
-        {
-          title,
-          description,
-          building_id: buildingId,
-          reward_credits: rewardCredits,
-          creator_id: creatorId,
-          status: 'open'
-        }
-      ])
-      .select()
-      .single();
+    const { rows } = await pool.query(
+      `INSERT INTO quests (title, description, building_id, reward_credits, creator_id, status)
+       VALUES ($1, $2, $3, $4, $5, 'open')
+       RETURNING *`,
+      [title, description, buildingId, rewardCredits, creatorId]
+    );
 
-    if (error) {
-      console.error('Supabase Insert Error:', error);
-      return NextResponse.json({ error: 'Failed to insert quest into database.' }, { status: 500 });
-    }
-
-    return NextResponse.json({ success: true, quest: data }, { status: 201 });
+    return NextResponse.json({ success: true, quest: rows[0] }, { status: 201 });
 
   } catch (error: unknown) {
     console.error("DEBUG API ERROR:", error);

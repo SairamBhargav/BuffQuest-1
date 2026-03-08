@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
+import { authClient } from '@/lib/auth-client'
 import { useRouter } from 'next/navigation'
 
 export default function UpdatePasswordPage() {
@@ -11,7 +11,6 @@ export default function UpdatePasswordPage() {
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
   const router = useRouter()
-  const supabase = createClient()
 
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -26,12 +25,12 @@ export default function UpdatePasswordPage() {
     }
 
     try {
-      const { error } = await supabase.auth.updateUser({
-        password: password,
+      const { error } = await authClient.resetPassword({
+        newPassword: password,
       })
 
       if (error) {
-        setError(error.message)
+        setError(error.message || 'Error updating password')
       } else {
         setMessage('Password updated successfully! Redirecting to map...')
         setTimeout(() => {
