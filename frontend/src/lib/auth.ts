@@ -2,9 +2,10 @@ import { betterAuth } from "better-auth";
 import { Pool } from "pg";
 
 export const auth = betterAuth({
+    baseURL: process.env.BETTER_AUTH_URL,
     database: new Pool({
-        // The postgres connection string (Neon)
-        connectionString: process.env.DATABASE_URL
+        connectionString: process.env.DATABASE_URL,
+        max: 1, // important for serverless
     }),
     emailAndPassword: {
         enabled: true,

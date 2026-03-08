@@ -24,7 +24,7 @@ export default function ForgotPasswordPage() {
     }
 
     try {
-      const { error } = await authClient.emailOtp.sendVerificationOtp({
+      const { error } = await authClient.requestPasswordReset({
         email,
         type: 'forget-password',
       })
@@ -34,12 +34,10 @@ export default function ForgotPasswordPage() {
       } else {
         setMessage('Password reset instructions sent. Check your email.')
       }
-    } catch (err) {
+    } catch {
       setError('An unexpected error occurred. Please try again.')
     } finally {
-      if (!message) {
-        setLoading(false)
-      }
+      setLoading(false)
     }
   }
 
