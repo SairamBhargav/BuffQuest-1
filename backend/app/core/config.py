@@ -15,12 +15,11 @@ class Settings(BaseSettings):
 
     # ---- Required (no default – fails fast if missing) ----
     DATABASE_URL: str
-    SUPABASE_JWT_SECRET: str
 
     # ---- Empty-string defaults for dev convenience ----
     NEXT_PUBLIC_MAPBOX_TOKEN: str = ""
     GEMINI_API_KEY: str = ""
-    SUPABASE_URL: str = ""
+    BETTER_AUTH_URL: str = "http://localhost:3000"
 
     model_config = SettingsConfigDict(
         env_file=".env",

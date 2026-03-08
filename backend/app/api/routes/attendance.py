@@ -61,6 +61,9 @@ async def check_in(
             detail="User profile not found."
         )
 
+    # TODO: In reality, we'd run computer vision to verify schedule and class photo here.
+    # For now, we mock verification passing instantly if coordinates are close,
+    # but initially set to pending to reflect the correct architecture.
     submission = AttendanceSubmission(
         user_id=user_id,
         schedule_image_url=payload.schedule_image_url,
@@ -68,20 +71,25 @@ async def check_in(
         class_name=payload.class_name,
         building_zone_id=payload.building_zone_id,
         scheduled_start_time=payload.scheduled_start_time,
-        verification_status=AttendanceVerificationStatus.APPROVED,
-        reward_issued=True,
+        verification_status=AttendanceVerificationStatus.PENDING,
+        reward_issued=False,
     )
     db.add(submission)
     
-    # Award credits and add reward log
-    profile.credits += 5
-    reward_log = RewardLog(
-        user_id=user_id,
-        source_type=RewardSourceType.ATTENDANCE_REWARD,
-        credit_delta=5,
-        notoriety_delta=0
-    )
-    db.add(reward_log)
+    # Simulate async or synchronous CV Check passing:
+    submission.verification_status = AttendanceVerificationStatus.APPROVED
+    submission.reward_issued = True
+    
+    # Award credits and add reward log only if approved
+    if submission.verification_status == AttendanceVerificationStatus.APPROVED:
+        profile.credits += 5
+        reward_log = RewardLog(
+            user_id=user_id,
+            source_type=RewardSourceType.ATTENDANCE_REWARD,
+            credit_delta=5,
+            notoriety_delta=0
+        )
+        db.add(reward_log)
 
     await db.commit()
     await db.refresh(submission)

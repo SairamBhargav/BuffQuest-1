@@ -3,7 +3,12 @@ import { APIError } from "better-auth/api";
 import { Pool } from "pg";
 import nodemailer from "nodemailer";
 
-const transporter = nodemailer.createTransport({
+const globalForAuth = globalThis as unknown as {
+    pool: Pool | undefined;
+    transporter: nodemailer.Transporter | undefined;
+};
+
+const transporter = globalForAuth.transporter ?? nodemailer.createTransport({
     service: 'gmail',
     auth: {
         user: process.env.EMAIL_USER,
@@ -11,12 +16,19 @@ const transporter = nodemailer.createTransport({
     },
 });
 
+const pool = globalForAuth.pool ?? new Pool({
+    connectionString: process.env.DATABASE_URL,
+    max: 1, // important for serverless
+});
+
+if (process.env.NODE_ENV !== "production") {
+    globalForAuth.transporter = transporter;
+    globalForAuth.pool = pool;
+}
+
 export const auth = betterAuth({
     baseURL: process.env.BETTER_AUTH_URL,
-    database: new Pool({
-        connectionString: process.env.DATABASE_URL,
-        max: 1, // important for serverless
-    }),
+    database: pool,
     emailAndPassword: {
         enabled: true,
         requireEmailVerification: true,

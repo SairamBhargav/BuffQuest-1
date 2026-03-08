@@ -1,80 +1,27 @@
-"""Authentication & JWT verification for Supabase Auth.
+"""Authentication & Session verification for Better Auth.
 
 Provides FastAPI dependencies to protect routes:
 
-* ``get_current_user``  - extracts and validates the Bearer token,
-  returns the authenticated user's UUID.
-* ``require_role``      - optional factory that also checks the user's
-  role from the JWT ``user_metadata``.
+* ``get_current_user``  - extracts and validates the session token against
+  the database, returns the authenticated user's ID.
+* ``require_role``      - factory that also checks the user's role 
+  from the database.
 """
 
+from datetime import datetime, timezone
 from typing import Annotated
 
-import jwt
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings, get_settings
+from app.core.database import get_db
 
-# Reusable security scheme (auto-documents the "Authorize" button in
-# Swagger UI).
-_bearer_scheme = HTTPBearer()
-
-
-# ------------------------------------------------------------------
-# Token helpers
-# ------------------------------------------------------------------
-
-def verify_token(
-    token: str,
-    settings: Settings,
-    *,
-    algorithms: list[str] | None = None,
-) -> dict:
-    """Decode and verify a Supabase-issued JWT.
-
-    Parameters
-    ----------
-    token:
-        The raw JWT string (without the "Bearer " prefix).
-    settings:
-        Application settings containing the JWT secret.
-    algorithms:
-        Allowed signing algorithms.  Defaults to ``["HS256"]``
-        (Supabase's default).
-
-    Returns
-    -------
-    dict
-        The decoded JWT payload on success.
-
-    Raises
-    ------
-    HTTPException (401)
-        If the token is expired, malformed, or otherwise invalid.
-    """
-    if algorithms is None:
-        algorithms = ["HS256"]
-
-    try:
-        payload: dict = jwt.decode(
-            token,
-            settings.SUPABASE_JWT_SECRET,
-            algorithms=algorithms,
-            options={"verify_aud": False},
-        )
-    except jwt.ExpiredSignatureError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token has expired",
-        )
-    except jwt.InvalidTokenError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid authentication token",
-        )
-
-    return payload
+# Reusable security scheme (auto-documents the "Authorize" button in Swagger UI).
+# auto_error=False allows us to manually check cookies if the header is missing
+_bearer_scheme = HTTPBearer(auto_error=False)
 
 
 # ------------------------------------------------------------------
@@ -82,80 +29,79 @@ def verify_token(
 # ------------------------------------------------------------------
 
 async def get_current_user(
+    request: Request,
     credentials: Annotated[
-        HTTPAuthorizationCredentials, Depends(_bearer_scheme)
+        HTTPAuthorizationCredentials | None, Depends(_bearer_scheme)
     ],
-    settings: Annotated[Settings, Depends(get_settings)],
+    db: AsyncSession = Depends(get_db),
 ) -> str:
-    """Dependency that returns the authenticated Supabase user's UUID.
+    """Dependency that returns the authenticated Better Auth user's ID.
 
-    Usage::
-
-        @router.get("/protected")
-        async def protected(user_id: str = Depends(get_current_user)):
-            ...
+    Extracts the token from the `Authorization: Bearer` header or the
+    `better-auth.session_token` cookie, then validates it directly 
+    against the Neon database session table.
     """
-    payload = verify_token(credentials.credentials, settings)
+    token = None
+    if credentials and credentials.credentials:
+        token = credentials.credentials
+    else:
+        # Check standard and secure cookie names for better-auth
+        token = request.cookies.get("better-auth.session_token")
+        if not token:
+            token = request.cookies.get("__Secure-better-auth.session_token")
 
-    sub = payload.get("sub")
-    if sub is None:
+    if not token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token missing subject claim",
+            detail="Not authenticated",
         )
 
-    try:
-        return sub
-    except ValueError:
+    # Query the session table to validate the token
+    stmt = text('SELECT "userId", "expiresAt" FROM "session" WHERE token = :token')
+    result = await db.execute(stmt, {"token": token})
+    row = result.first()
+
+    if not row:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid user ID in token",
+            detail="Session not found or invalid",
         )
+
+    user_id, expires_at = row
+
+    if expires_at and expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
+        
+    if expires_at and expires_at < datetime.now(timezone.utc):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Session expired",
+        )
+
+    return str(user_id)
 
 
 def require_role(*allowed_roles: str):
-    """Dependency factory that enforces role-based access.
+    """Dependency factory that enforces role-based access by checking DB.
 
-    Reads ``user_metadata.role`` from the Supabase JWT payload and
-    raises **403 Forbidden** if the role is not in *allowed_roles*.
-
-    Usage::
-
-        @router.delete("/admin-only", dependencies=[Depends(require_role("admin"))])
-        async def admin_only():
-            ...
+    Reads ``role`` from the ``user`` table for the authenticated session.
     """
 
     async def _check_role(
-        credentials: Annotated[
-            HTTPAuthorizationCredentials, Depends(_bearer_scheme)
-        ],
-        settings: Annotated[Settings, Depends(get_settings)],
+        user_id: str = Depends(get_current_user),
+        db: AsyncSession = Depends(get_db),
     ) -> str:
-        payload = verify_token(credentials.credentials, settings)
+        stmt = text('SELECT "role" FROM "user" WHERE id = :user_id')
+        result = await db.execute(stmt, {"user_id": user_id})
+        user_role = result.scalar()
 
-        user_meta = payload.get("user_metadata", {})
-        role = user_meta.get("role", "user")
-
-        if role not in allowed_roles:
+        if not user_role or user_role not in allowed_roles:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Role '{role}' is not authorized for this action",
+                detail=f"Role '{user_role}' is not authorized for this action",
             )
 
-        sub = payload.get("sub")
-        if sub is None:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Token missing subject claim",
-            )
-
-        try:
-            return sub
-        except ValueError:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid user ID in token",
-            )
+        return user_id
 
     return _check_role
+

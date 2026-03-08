@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings, get_settings
 from app.core.database import get_db
+from app.core.security import require_role
 from app.models.quest import ModerationStatus, Quest
 from app.schemas.moderation import ModerationResult
 
@@ -22,6 +23,7 @@ router = APIRouter(prefix="/moderation", tags=["moderation"])
 @router.post("/review", response_model=ModerationResult)
 async def review_quest(
     quest_id: int,
+    admin_id: str = Depends(require_role("admin")),
     db: AsyncSession = Depends(get_db),
     settings: Settings = Depends(get_settings),
 ):

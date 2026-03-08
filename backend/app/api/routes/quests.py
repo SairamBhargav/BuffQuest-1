@@ -156,8 +156,8 @@ async def cancel_quest(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Quest not found")
     if quest.creator_id != user_id:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Not the quest creator")
-    if quest.status not in (QuestStatus.OPEN, QuestStatus.CLAIMED):
-        raise HTTPException(status.HTTP_409_CONFLICT, "Quest cannot be cancelled in its current state")
+    if quest.status != QuestStatus.OPEN:
+        raise HTTPException(status.HTTP_409_CONFLICT, "Quest cannot be cancelled once claimed or closed")
 
     quest.status = QuestStatus.CANCELLED
 

@@ -14,9 +14,6 @@ pydantic==2.12.5
 pydantic-settings==2.5.2
 #########
 
-#JWT
-PyJWT==2.9.0
-####
 
 #Async Postgres Driver
 asyncpg==0.31.0
