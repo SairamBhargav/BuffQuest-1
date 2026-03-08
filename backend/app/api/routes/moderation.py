@@ -8,8 +8,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import Settings, get_settings
 from app.core.database import get_db
+from app.core.security import require_role
 from app.models.quest import ModerationStatus, Quest
 from app.schemas.moderation import ModerationResult
 
@@ -23,8 +23,9 @@ router = APIRouter(prefix="/moderation", tags=["moderation"])
 async def review_quest(
     quest_id: int,
     db: AsyncSession = Depends(get_db),
+    _admin: object = Depends(require_role("admin")),
 ):
-    """Submit a quest for moderation review.
+    """Submit a quest for moderation review. Requires admin authentication.
 
     This is a placeholder that auto-approves all quests. Replace the
     body with an actual AI moderation call when the pipeline is ready.
