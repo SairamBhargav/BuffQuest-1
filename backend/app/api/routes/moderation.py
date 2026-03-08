@@ -23,6 +23,7 @@ router = APIRouter(prefix="/moderation", tags=["moderation"])
 async def review_quest(
     quest_id: int,
     db: AsyncSession = Depends(get_db),
+    settings: Settings = Depends(get_settings),
 ):
     """Submit a quest for moderation review.
 
