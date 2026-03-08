@@ -6,13 +6,15 @@ from pydantic import BaseModel
 
 class QuestStatus(str, Enum):
     OPEN = "open"
-    IN_PROGRESS = "in_progress"
-    PENDING_VERIFICATION = "pending_verification"
+    CLAIMED = "claimed"
     COMPLETED = "completed"
+    VERIFIED = "verified"
+    REWARDED = "rewarded"
     CANCELLED = "cancelled"
+    EXPIRED = "expired"
 
 
-class Quest(BaseModel):
+class QuestMachineState(BaseModel):
     id: str
     creator_id: str
     title: str
@@ -25,10 +27,10 @@ class Quest(BaseModel):
 
 
 # In-memory dictionary acting as a temporary database for quests
-quest_db: Dict[str, Quest] = {}
+quest_db: Dict[str, QuestMachineState] = {}
 
 
-def claim_quest(quest_id: str, user_id: str) -> Quest:
+def claim_quest(quest_id: str, user_id: str) -> QuestMachineState:
     """
     Claims an open quest for the given user.
     """
@@ -45,13 +47,13 @@ def claim_quest(quest_id: str, user_id: str) -> Quest:
 
     # Update quest state
     quest.hunter_id = user_id
-    quest.status = QuestStatus.IN_PROGRESS
+    quest.status = QuestStatus.CLAIMED
     quest.claimed_at = datetime.utcnow()
 
     return quest
 
 
-def complete_quest(quest_id: str, user_id: str) -> Quest:
+def complete_quest(quest_id: str, user_id: str) -> QuestMachineState:
     """
     Marks an in-progress quest as pending verification by the assigned hunter.
     """
@@ -60,14 +62,14 @@ def complete_quest(quest_id: str, user_id: str) -> Quest:
 
     quest = quest_db[quest_id]
 
-    if quest.status != QuestStatus.IN_PROGRESS:
+    if quest.status != QuestStatus.CLAIMED:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Quest is not in progress")
 
     if quest.hunter_id != user_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only the assigned hunter can complete this quest")
 
     # Update quest state
-    quest.status = QuestStatus.PENDING_VERIFICATION
+    quest.status = QuestStatus.COMPLETED
     quest.completed_at = datetime.utcnow()
 
     return quest

@@ -4,8 +4,7 @@ import enum
 import uuid
 from datetime import datetime
 
-from sqlalchemy import BigInteger, Boolean, DateTime, Enum, ForeignKey, Text, func
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import BigInteger, Boolean, DateTime, Enum, ForeignKey, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -25,9 +24,9 @@ class AttendanceSubmission(Base):
 
     # ── columns ──────────────────────────────────────────────
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    user_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
-        ForeignKey("public.profiles.id", ondelete="CASCADE"),
+    user_id: Mapped[str] = mapped_column(
+        String,
+        ForeignKey("user.id", ondelete="CASCADE"),
         nullable=False,
     )
     schedule_image_url: Mapped[str] = mapped_column(Text, nullable=False)
@@ -35,7 +34,7 @@ class AttendanceSubmission(Base):
     class_name: Mapped[str] = mapped_column(Text, nullable=False)
     building_zone_id: Mapped[int | None] = mapped_column(
         BigInteger,
-        ForeignKey("public.building_zones.id", ondelete="SET NULL"),
+        ForeignKey("building_zones.id", ondelete="SET NULL"),
     )
     scheduled_start_time: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False
