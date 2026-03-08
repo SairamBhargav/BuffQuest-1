@@ -59,7 +59,7 @@ export default function RootLayout({
     <html lang="en">
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${inter.variable} font-sans antialiased m-0 p-0 overflow-hidden`}
-        style={{ width: '100vw', height: '100dvh' }}
+        style={{ width: '100vw', height: '100vh' }}
       >
         <Providers>
           {children}
